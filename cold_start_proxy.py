@@ -24,7 +24,6 @@ class CustomColdStartProxy(ColdStartProxy):
         super().__init__(proxy_url)
 
     async def handle_request(self, request: Text) -> Any:
-        # TODO - batch processing in the cold start proxy
         try:
             async with aiohttp.ClientSession() as session:
                 headers = {
