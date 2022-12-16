@@ -2,7 +2,7 @@
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/main/configs/stable-diffusion/v2-inference-v.yaml -o v2-inference-v.yaml
 import lightning as L
-import torch, torch.utils.data as data
+import torch
 import os, base64, io, ldm
 
 from autoscaler import AutoScaler
@@ -25,36 +25,28 @@ class DiffusionServer(L.app.components.PythonServer):
         cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/768-v-ema.ckpt -o 768-v-ema.ckpt"
         os.system(cmd)
 
-        precision = 16 if torch.cuda.is_available() else 32
-        self._trainer = L.Trainer(
-            accelerator="auto",
-            devices=1,
-            precision=precision,
-            enable_progress_bar=False,
-        )
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self._model = ldm.lightning.LightningStableDiffusion(
             config_path="v2-inference-v.yaml",
             checkpoint_path="768-v-ema.ckpt",
-            device=self._trainer.strategy.root_device.type,
-        )
+            device=device,
+        ).to(device)
+
+        # TODO - float16 and no grad
 
         if torch.cuda.is_available():
-            self._model = self._model.to(torch.float16)
             torch.cuda.empty_cache()
 
     def predict(self, requests):
         batch_size = len(requests.inputs)
-        print(f"predicting with batch size {batch_size}")
-        texts = []
-        for request in requests.inputs:
-            print("INFO: ", request.text)
-            texts.append(request.text)
+        texts = [request.text for request in requests.inputs]
 
-        images = self._trainer.predict(
-            self._model,
-            data.DataLoader(ldm.lightning.PromptDataset(texts), batch_size=batch_size),
-        )[0]
+        images = self._model.predict_step(
+            prompts=texts,
+            batch_idx=0,  # or whatever
+        )
+
         results = []
         for image in images:
             buffer = io.BytesIO()
@@ -62,15 +54,16 @@ class DiffusionServer(L.app.components.PythonServer):
             image_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
             results.append(image_str)
 
+        print(f"finish predicting with batch size {batch_size}")
         return BatchResponse(outputs=[{"image": image_str} for image_str in results])
 
 
 component = AutoScaler(
-    # work cls and args
-    DiffusionServer,
+    DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
+
     # autoscaler args
-    min_replicas=0,
+    min_replicas=1,
     max_replicas=3,
     endpoint="/predict",
     autoscale_up_interval=0,
