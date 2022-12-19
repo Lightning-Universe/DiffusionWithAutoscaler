@@ -268,8 +268,6 @@ class _LoadBalancer(LightningWork):
         if not self.servers and not self._cold_start_proxy:
             raise HTTPException(500, "None of the workers are healthy!")
 
-        print("Servers are: ", self.servers)
-
         request_id = uuid.uuid4().hex
         if not self.servers:
             print("no servers, proxying request")
