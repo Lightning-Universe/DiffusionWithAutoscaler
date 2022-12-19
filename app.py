@@ -1,6 +1,8 @@
 # !pip install lightning_api_access
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/main/configs/stable-diffusion/v2-inference-v.yaml -o v2-inference-v.yaml
+import time
+
 import lightning as L
 import torch
 import os, base64, io, ldm
@@ -39,6 +41,7 @@ class DiffusionServer(L.app.components.PythonServer):
             torch.cuda.empty_cache()
 
     def predict(self, requests):
+        start = time.time()
         batch_size = len(requests.inputs)
         texts = [request.text for request in requests.inputs]
 
@@ -54,7 +57,7 @@ class DiffusionServer(L.app.components.PythonServer):
             image_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
             results.append(image_str)
 
-        print(f"finish predicting with batch size {batch_size}")
+        print(f"finish predicting with batch size {batch_size} in {time.time() - start} seconds")
         return BatchResponse(outputs=[{"image": image_str} for image_str in results])
 
 

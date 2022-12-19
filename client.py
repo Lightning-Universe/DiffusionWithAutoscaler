@@ -5,7 +5,7 @@ import requests
 
 for i in range(100):
     start = time.time()
-    response = requests.post('https://fgqkv-01gmbp5pydq2c217qt2qyaxcrv.litng-ai-03.litng.ai/predict', json={
+    response = requests.post('https://tszad-01gmnrhr0j4kx7s1s5890wpdwt.litng-ai-03.litng.ai/predict', json={
         "text": "A portrait of a person looking away from the camera"
     })
 
