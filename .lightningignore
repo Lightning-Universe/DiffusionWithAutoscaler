@@ -2,3 +2,8 @@ venv/
 .git/
 .idea/
 
+# weights
+sd_weights.tar.gz
+v1-5-pruned-emaonly.ckpt
+768-v-ema.ckpt
+512-base-ema.ckpt

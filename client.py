@@ -3,9 +3,11 @@ import time
 from pathlib import Path
 import requests
 
+benchmarks = []
+
 for i in range(100):
     start = time.time()
-    response = requests.post('https://tszad-01gmnrhr0j4kx7s1s5890wpdwt.litng-ai-03.litng.ai/predict', json={
+    response = requests.post('https://epuji-01gmqhyzq3ve495v1rnz6s505c.litng-ai-03.litng.ai/predict', json={
         "text": "A portrait of a person looking away from the camera"
     })
 

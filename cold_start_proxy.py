@@ -4,18 +4,9 @@ import aiohttp
 from pydantic import BaseModel
 
 from datatypes import Image, Text
+from autoscaler import ColdStartProxy
 
 proxy_url = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
-
-
-class ColdStartProxy:
-    def __init__(self, proxy_url):
-        self.proxy_url = proxy_url
-        self.proxy_timeout = 20
-
-    async def handle_request(self, request: BaseModel) -> Any:
-        # TODO default handler
-        pass
 
 
 class CustomColdStartProxy(ColdStartProxy):
