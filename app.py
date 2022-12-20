@@ -1,33 +1,23 @@
 # !pip install lightning_api_access
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
+# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/main/configs/stable-diffusion/v2-inference-v.yaml -o v2-inference-v.yaml
 import time
-from typing import List, Any
 
-import aiohttp
 import lightning as L
 import torch
 import os, base64, io, ldm
 
-from pydantic import BaseModel
+from diffusion_with_autoscaler import CustomColdStartProxy, AutoScaler, BatchText, BatchImage, Text, Image
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
-
-
-class BatchText(BaseModel):
-    inputs: List[L.app.components.Text]
-
-
-class BatchResponse(BaseModel):
-    outputs: List[L.app.components.Image]
-
 
 
 class DiffusionServer(L.app.components.PythonServer):
     def __init__(self, *args, **kwargs):
         super().__init__(
             input_type=BatchText,
-            output_type=BatchResponse,
+            output_type=BatchImage,
             *args,
             **kwargs,
         )
@@ -59,10 +49,10 @@ class DiffusionServer(L.app.components.PythonServer):
             image_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
             results.append(image_str)
         print(f"finish predicting with batch size {batch_size} in {time.time() - start} seconds")
-        return BatchResponse(outputs=[{"image": image_str} for image_str in results])
+        return BatchImage(outputs=[{"image": image_str} for image_str in results])
 
 
-component = L.app.components.AutoScaler(
+component = AutoScaler(
     DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
 
@@ -74,8 +64,8 @@ component = L.app.components.AutoScaler(
     scale_in_interval=300,  # 30 minutes
     max_batch_size=8,
     timeout_batching=2,
-    input_type=L.app.components.Text,
-    output_type=L.app.components.Image,
+    input_type=Text,
+    output_type=Image,
     cold_start_proxy=CustomColdStartProxy(proxy_url=PROXY_URL),
 )
 

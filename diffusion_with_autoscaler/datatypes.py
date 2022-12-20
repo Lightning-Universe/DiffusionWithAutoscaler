@@ -82,7 +82,7 @@ response = requests.post('"""
         )
 
 
-class BatchResponse(BaseModel):
+class BatchImage(BaseModel):
     # Note: field name must be `outputs`
     outputs: List[Image]
 
