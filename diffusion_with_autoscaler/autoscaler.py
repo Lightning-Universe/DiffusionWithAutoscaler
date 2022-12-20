@@ -501,6 +501,8 @@ class _LoadBalancer(LightningWork):
             else:
                 frontend_objects["request"] = request
                 frontend_objects["response"] = response
+        print(frontend_objects)
+        print("====================")
         return APIAccessFrontend(apis=[frontend_objects])
 
 

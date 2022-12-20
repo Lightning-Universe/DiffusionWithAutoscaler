@@ -1,6 +1,6 @@
-# !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component'
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
-# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler'
+# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git'
+# !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/main/configs/stable-diffusion/v2-inference-v.yaml -o v2-inference-v.yaml
 import time
 
