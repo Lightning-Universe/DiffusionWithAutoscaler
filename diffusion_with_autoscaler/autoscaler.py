@@ -14,7 +14,6 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from fastapi.security import HTTPBasic
 from pydantic import BaseModel
 from starlette.staticfiles import StaticFiles
 from starlette.status import HTTP_401_UNAUTHORIZED
@@ -206,12 +205,14 @@ class _LoadBalancer(LightningWork):
                     "accept": "application/json",
                     "Content-Type": "application/json",
                 }
+                print(f"Sending request to {batch[0][0]}")
                 async with session.post(
                         f"{server_url}{self.endpoint}",
                         json=batch_request_data.dict(),
                         timeout=self._timeout_inference_request,
                         headers=headers,
                 ) as response:
+                    print(f"Got response from {batch[0][0]}")
                     # resetting the server status so other requests can be
                     # scheduled on this node
                     if server_url in self._server_status:
@@ -226,6 +227,7 @@ class _LoadBalancer(LightningWork):
                     if len(batch) != len(outputs):
                         raise RuntimeError(f"result has {len(outputs)} items but batch is {len(batch)}")
                     result = {request[0]: r for request, r in zip(batch, outputs)}
+                    print("updating response", batch[0][0])
                     self._responses.update(result)
         except Exception as ex:
             result = {request[0]: ex for request in batch}
@@ -260,6 +262,7 @@ class _LoadBalancer(LightningWork):
             if server_url is None:
                 continue
             if batch and (is_batch_ready or is_batch_timeout):
+                print("consumer sending request", batch[0][0])
                 # find server with capacity
                 asyncio.create_task(self.send_batch(batch, server_url))
                 # resetting the batch array, TODO - not locking the array
@@ -281,10 +284,12 @@ class _LoadBalancer(LightningWork):
             return await self._cold_start_proxy.handle_request(data)
 
         # if we have capacity, process the request
+        print("appended to batch", request_id)
         self._batch.append((request_id, data))
         while True:
             await asyncio.sleep(0.05)
             if request_id in self._responses:
+                print("found response", request_id)
                 result = self._responses[request_id]
                 del self._responses[request_id]
                 _maybe_raise_granular_exception(result)
@@ -310,7 +315,6 @@ class _LoadBalancer(LightningWork):
         self._last_batch_sent = time.time()
 
         fastapi_app = _create_fastapi("Load Balancer")
-        security = HTTPBasic()
         fastapi_app.SEND_TASK = None
         self._fastapi_app = fastapi_app
 
