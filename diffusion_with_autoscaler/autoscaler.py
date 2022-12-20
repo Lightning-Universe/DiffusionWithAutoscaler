@@ -632,7 +632,7 @@ class AutoScaler(LightningFlow):
         cloud_compute = self._work_kwargs.get("cloud_compute", None)
         self._work_kwargs.update(
             dict(
-                start_with_flow=True,
+                start_with_flow=False,
                 cloud_compute=cloud_compute.clone() if cloud_compute else None,
             )
         )
