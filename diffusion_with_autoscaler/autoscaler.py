@@ -27,8 +27,7 @@ from lightning.app.utilities.imports import _is_aiohttp_available, requires
 from lightning.app.utilities.packaging.cloud_compute import CloudCompute
 from lightning.app.utilities.cloud import is_running_in_cloud
 
-# TODO - fix this import
-from cold_start_proxy import ColdStartProxy
+from diffusion_with_autoscaler.cold_start_proxy import ColdStartProxy
 
 if _is_aiohttp_available():
     import aiohttp

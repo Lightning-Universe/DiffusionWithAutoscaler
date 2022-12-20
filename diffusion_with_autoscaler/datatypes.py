@@ -73,10 +73,9 @@ class BatchText(BaseModel):
                 """import base64
 from pathlib import Path
 import requests
-
 response = requests.post('"""
-            + url
-            + """', json={
+                + url
+                + """', json={
 "inputs": [{"text": "A portrait of a person looking away from the camera"}]
 })
 """
