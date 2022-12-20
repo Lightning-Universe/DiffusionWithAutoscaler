@@ -490,7 +490,7 @@ class _LoadBalancer(LightningWork):
         frontend_objects = {"name": self._api_name, "url": url, "method": "POST", "request": None, "response": None}
         code_samples = self.get_code_sample(url)
         if code_samples:
-            frontend_objects["code_samples"] = code_samples
+            frontend_objects["code_sample"] = code_samples
             # TODO also set request/response for JS UI
         else:
             try:
@@ -501,8 +501,6 @@ class _LoadBalancer(LightningWork):
             else:
                 frontend_objects["request"] = request
                 frontend_objects["response"] = response
-        print(frontend_objects)
-        print("====================")
         return APIAccessFrontend(apis=[frontend_objects])
 
 
