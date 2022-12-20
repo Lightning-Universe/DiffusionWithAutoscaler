@@ -26,7 +26,7 @@ def _load_requirements(path_dir: str, file_name: str = "requirements.txt", comme
 
 
 setup(
-    name="lightning_autoscaler",
+    name="diffusion_with_autoscaler",
     version="0.0.1",
     description="⚡ AutoScaler in Lightning.AI ⚡",
     long_description="⚡ Deploy models with AutoScaler using Lightning ⚡",
