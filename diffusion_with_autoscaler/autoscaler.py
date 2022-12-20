@@ -3,7 +3,6 @@ import logging
 import multiprocessing
 import os
 import queue
-import secrets
 import time
 import uuid
 from base64 import b64encode
@@ -12,10 +11,10 @@ from typing import Any, Dict, List, Tuple, Type, Optional, Union
 
 import requests
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBasic
 from pydantic import BaseModel
 from starlette.staticfiles import StaticFiles
 from starlette.status import HTTP_401_UNAUTHORIZED
@@ -338,27 +337,8 @@ class _LoadBalancer(LightningWork):
         def shutdown_event():
             fastapi_app.SEND_TASK.cancel()
 
-        def authenticate_private_endpoint(credentials: HTTPBasicCredentials = Depends(security)):
-            AUTO_SCALER_AUTH_PASSWORD = os.environ.get("AUTO_SCALER_AUTH_PASSWORD", "")
-            if len(AUTO_SCALER_AUTH_PASSWORD) == 0:
-                logger.warn(
-                    "You have not set a password for private endpoints! To set a password, add "
-                    "`--env AUTO_SCALER_AUTH_PASSWORD=<your pass>` to your lightning run command."
-                )
-            current_password_bytes = credentials.password.encode("utf8")
-            is_correct_password = secrets.compare_digest(
-                current_password_bytes, AUTO_SCALER_AUTH_PASSWORD.encode("utf8")
-            )
-            if not is_correct_password:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Incorrect password",
-                    headers={"WWW-Authenticate": "Basic"},
-                )
-            return True
-
         @fastapi_app.get("/system/info", response_model=_SysInfo)
-        async def sys_info(authenticated: bool = Depends(authenticate_private_endpoint)):
+        async def sys_info():
             return _SysInfo(
                 num_workers=len(self._servers),
                 servers=self._servers,
@@ -368,7 +348,7 @@ class _LoadBalancer(LightningWork):
             )
 
         @fastapi_app.put("/system/update-servers")
-        async def update_servers(servers: List[str], authenticated: bool = Depends(authenticate_private_endpoint)):
+        async def update_servers(servers: List[str]):
             async with lock:
                 self._servers = servers
             self._iter = cycle(self._servers)
