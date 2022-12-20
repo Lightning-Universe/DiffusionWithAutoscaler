@@ -7,7 +7,7 @@ import uuid
 from base64 import b64encode
 from itertools import cycle
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-
+from collections import deque
 import requests
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -113,6 +113,11 @@ class _SysInfo(BaseModel):
     global_request_count: int
 
 
+class _MetricsInfo(BaseModel):
+    batch_size: int
+    batch_size_processed: int
+
+
 class _BatchRequestModel(BaseModel):
     inputs: List[Any]
 
@@ -139,6 +144,13 @@ def _create_fastapi(title: str) -> FastAPI:
     @fastapi_app.get("/num-requests")
     async def num_requests() -> int:
         return fastapi_app.num_current_requests
+
+    @fastapi_app.get("/metrics", response_model=_MetricsInfo)
+    async def sys_info():
+        return _MetricsInfo(
+            batch_size=fastapi_app.batch_size,
+            batch_size_processed=fastapi_app.batch_size_processed,
+        )
 
     return fastapi_app
 
@@ -243,10 +255,8 @@ class _LoadBalancer(LightningWork):
                     outputs = response["outputs"]
                     if len(batch) != len(outputs):
                         raise RuntimeError(f"result has {len(outputs)} items but batch is {len(batch)}")
-                    print("batch", batch)
-                    print("outputs", outputs)
                     result = {request[0]: r for request, r in zip(batch, outputs)}
-                    print("result", result)
+                    self._fastapi_app.batch_size_processed -= len(len(batch))
                     self._responses.update(result)
         except Exception as ex:
             result = {request[0]: ex for request in batch}
@@ -281,6 +291,8 @@ class _LoadBalancer(LightningWork):
             else:
                 is_batch_timeout = False
 
+            self._fastapi_app.batch_size = len(self._batch)
+
             server_url = self._find_free_server()
             # setting the server status to be busy! This will be reset by
             # the send_batch function after the server responds
@@ -289,10 +301,10 @@ class _LoadBalancer(LightningWork):
             if batch and (is_batch_ready or is_batch_timeout):
                 # find server with capacity
                 asyncio.create_task(self.send_batch(batch, server_url))
-                print(len(batch), len(self._batch), is_batch_ready, is_batch_timeout)
                 # resetting the batch array, TODO - not locking the array
                 self._batch = self._batch[len(batch) :]
                 self._last_batch_sent = time.time()
+                self._fastapi_app.batch_size_processed += len(batch)
 
     async def process_request(self, data: BaseModel):
         if not self._servers and not self._cold_start_proxy:
@@ -341,6 +353,8 @@ class _LoadBalancer(LightningWork):
         fastapi_app.SEND_TASK = None
         self._fastapi_app = fastapi_app
         self._fastapi_app.has_informed = False
+        fastapi_app.batch_size = 0
+        fastapi_app.batch_size_processed = 0
 
         input_type = self._input_type
 
@@ -390,6 +404,14 @@ class _LoadBalancer(LightningWork):
             return _SysInfo(
                 num_workers=len(self._servers),
                 servers=self._servers,
+                num_requests=fastapi_app.num_current_requests,
+                processing_time=fastapi_app.last_processing_time,
+                global_request_count=fastapi_app.global_request_count,
+            )
+
+        @fastapi_app.get("/system/metrics", response_model=_SysInfo)
+        async def sys_info(authenticated: bool = Depends(authenticate_private_endpoint)):
+            return _SysInfo(
                 num_requests=fastapi_app.num_current_requests,
                 processing_time=fastapi_app.last_processing_time,
                 global_request_count=fastapi_app.global_request_count,
@@ -527,15 +549,26 @@ class SimpleDashboard(LightningFlow):
         self.date = []
         self.servers = []
         self.requests = []
+        self.batch_size = []
+        self.batch_size_processed = []
         self._last_time = time.time()
         self._start_time = time.time()
 
-    def add(self, servers, requests):
-        if (time.time() - self._last_time) > 0.1:
+    def add(self, servers, requests, batch_size, batch_size_processed):
+        if (time.time() - self._last_time) > 0.5:
             t0 = time.time()
             self.date.append(round(t0 - self._start_time, 4))
             self.servers.append(servers)
             self.requests.append(requests)
+            self.batch_size.append(batch_size)
+            self.batch_size_processed.append(batch_size_processed)
+
+            if len(self.date) > 5 * 3600 * 2:
+                self.date.pop(0)
+                self.servers.pop(0)
+                self.requests.pop(0)
+                self.batch_size.pop(0)
+                self.batch_size_processed.pop(0)
 
     def configure_layout(self):
         return StreamlitFrontend(render_fn=render_fn)
@@ -549,6 +582,8 @@ def render_fn(state):
         'date': state.date,
         'servers': state.servers,
         'requests': state.requests,
+        'batch_size': state.batch_size,
+        'batch_size_processed': state.batch_size_processed,
     })
 
     df = df.rename(columns={'date':'index'}).set_index('index')
@@ -767,6 +802,10 @@ class AutoScaler(LightningFlow):
         return int(requests.get(f"{self.load_balancer.url}/num-requests").json())
 
     @property
+    def extra_metrics(self) -> Dict:
+        return requests.get(f"{self.load_balancer.url}/metrics").json()
+
+    @property
     def num_pending_works(self) -> int:
         """The number of pending works."""
         return sum(work.is_pending for work in self.workers)
@@ -784,7 +823,11 @@ class AutoScaler(LightningFlow):
             min(self.max_replicas, self.scale(self.num_replicas, metrics)),
         )
 
-        self.dashboard.add(self.num_replicas + metrics["pending_works"], metrics["pending_requests"])
+        self.dashboard.add(
+            self.num_replicas + metrics["pending_works"],
+            metrics["pending_requests"],
+            **self.extra_metrics,
+        )
 
         # scale-out
         if time.time() - self._last_autoscale > self.scale_out_interval:

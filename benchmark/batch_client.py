@@ -5,7 +5,7 @@ import aiohttp
 import numpy as np
 import asyncio
 
-ENDPOINT = "http://localhost:65525/predict"
+ENDPOINT = "http://localhost:54330/predict"
 # ENDPOINT = "https://bmdla-01gmr4je8s8zgnzpv8vyxpwn61.litng-ai-03.litng.ai/predict"
 TEXT = "A portrait of a person looking away from the camera"
 
