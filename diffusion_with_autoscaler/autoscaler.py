@@ -191,8 +191,9 @@ class _LoadBalancer(LightningWork):
             else:
                 raise ValueError("cold_start_proxy must be of type ColdStartProxy or str")
 
-    @property
-    def internal_url(self) -> str:
+    def get_internal_url(self) -> str:
+        if not self._internal_ip:
+            raise ValueError("Internal IP not set")
         return f"http://{self._internal_ip}:{self._port}"
 
     async def send_batch(self, batch: List[Tuple[str, _BatchRequestModel]], server_url: str):
@@ -396,24 +397,44 @@ class _LoadBalancer(LightningWork):
         """
         old_server_urls = set(self.servers)
         # TODO _internal_ip should populate right value when running outside k8s or on a different cluster
-        current_server_urls = {f"http://{server._internal_ip}:{server._port}" for server in server_works}
+        current_server_urls = {
+            f"http://{server._internal_ip}:{server._port}"
+            for server in server_works
+            if server._internal_ip
+        }
 
         # doing nothing if no server work has been added/removed
         if old_server_urls == current_server_urls:
             return
 
-        newly_added = current_server_urls - old_server_urls
+        # checking if the url is ready or not
+        available_urls = set()
+        for url in current_server_urls:
+            try:
+                _ = requests.get(url)
+            except requests.exceptions.ConnectionError:
+                print(f"Found Server {url} but is not ready yet")
+                continue
+            else:
+                available_urls.add(url)
+
+        newly_added = available_urls - old_server_urls
         if newly_added:
             logger.info(f"servers added: {newly_added}")
 
-        deleted = old_server_urls - current_server_urls
+        deleted = old_server_urls - available_urls
         if deleted:
             logger.info(f"servers deleted: {deleted}")
-        print("updating servers", current_server_urls)
-        self.send_request_to_update_servers(list(current_server_urls))
+        print("updating servers", available_urls)
+        self.send_request_to_update_servers(list(available_urls))
 
     def send_request_to_update_servers(self, servers: List[str]):
-        response = requests.put(f"{self.internal_url}/system/update-servers", json=servers, timeout=10)
+        try:
+            internal_url = self.get_internal_url()
+        except ValueError:
+            logger.warn("Cannot update servers as internal_url is not set")
+            return
+        response = requests.put(f"{internal_url}/system/update-servers", json=servers, timeout=10)
         response.raise_for_status()
 
     @staticmethod
@@ -679,7 +700,12 @@ class AutoScaler(LightningFlow):
     @property
     def num_pending_requests(self) -> int:
         """Fetches the number of pending requests via load balancer."""
-        return int(requests.get(f"{self.load_balancer.url}/num-requests").json())
+        try:
+            load_balancer_url = self.load_balancer.get_internal_url()
+        except ValueError:
+            logger.warn("Cannot update servers as internal_url is not set")
+            return 0
+        return int(requests.get(f"{load_balancer_url}/num-requests").json())
 
     @property
     def num_pending_works(self) -> int:
