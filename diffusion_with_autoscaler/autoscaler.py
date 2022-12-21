@@ -272,16 +272,23 @@ class _LoadBalancer(LightningWork):
         if not self._servers and not self._cold_start_proxy:
             raise HTTPException(500, "None of the workers are healthy!")
 
+        print(self._servers, self._cold_start_proxy)
+            
         # if no servers are available, proxy the request to cold start proxy handler
         if not self._servers and self._cold_start_proxy:
             return await self._cold_start_proxy.handle_request(data)
 
+        print(self._has_processing_capacity(), self._cold_start_proxy)
+        
         # if out of capacity, proxy the request to cold start proxy handler
         if not self._has_processing_capacity() and self._cold_start_proxy:
             return await self._cold_start_proxy.handle_request(data)
 
         # if we have capacity, process the request
         self._batch.append((request_id, data))
+        
+        print("---")
+        
         while True:
             await asyncio.sleep(0.05)
             if request_id in self._responses:
