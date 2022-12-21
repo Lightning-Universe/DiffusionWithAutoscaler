@@ -29,7 +29,14 @@ response = requests.post('"""
             + url
             + """', json={
 "image": img
-})"""
+})
+# If you are using basic authentication for your app, you should add your credentials to the request:
+# response = requests.post('"""
+            + url
+            + """', json={
+# "image": img
+# }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
+"""
         )
 
     @staticmethod
@@ -59,6 +66,12 @@ response = requests.post('"""
             + """', json={
 "text": "A portrait of a person looking away from the camera"
 })
+# If you are using basic authentication for your app, you should add your credentials to the request:
+# response = requests.post('"""
+            + url
+            + """', json={
+# "text": "A portrait of a person looking away from the camera"
+# }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
 """
         )
 
@@ -78,6 +91,12 @@ response = requests.post('"""
                 + """', json={
 "inputs": [{"text": "A portrait of a person looking away from the camera"}]
 })
+# If you are using basic authentication for your app, you should add your credentials to the request:
+# response = requests.post('"""
+                + url
+                + """', json={
+# "inputs": [{"text": "A portrait of a person looking away from the camera"}],
+# }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
 """
         )
 
