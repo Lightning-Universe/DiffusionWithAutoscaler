@@ -53,6 +53,8 @@ class ColdStartProxy:
                 ) as response:
                     return await response.json()
         except Exception as ex:
+            # TODO - test this and make sure if cold start proxy is not up,
+            #  we are returning a useful message to the user
             raise HTTPException(status_code=500, detail=f"Error in proxy: {ex}")
 
 

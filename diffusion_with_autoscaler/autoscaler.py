@@ -1,11 +1,9 @@
 import asyncio
 import logging
 import multiprocessing
-import os
 import queue
 import time
 import uuid
-from base64 import b64encode
 from itertools import cycle
 from typing import Any, Dict, List, Tuple, Type, Optional, Union
 
@@ -14,10 +12,8 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from fastapi.security import HTTPBasic
 from pydantic import BaseModel
 from starlette.staticfiles import StaticFiles
-from starlette.status import HTTP_401_UNAUTHORIZED
 
 from lightning.app.core.flow import LightningFlow
 from lightning.app.core.work import LightningWork
@@ -33,6 +29,15 @@ if _is_aiohttp_available():
     import aiohttp.client_exceptions
 
 logger = Logger(__name__)
+
+
+class TrackableFastAPI(FastAPI):
+    """A FastAPI subclass that tracks the request metadata"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.global_request_count = 0
+        self.num_current_requests = 0
+        self.last_processing_time = 0
 
 
 class RequestProcessor:
@@ -99,8 +104,8 @@ class _BatchRequestModel(BaseModel):
     inputs: List[Any]
 
 
-def _create_fastapi(title: str) -> FastAPI:
-    fastapi_app = FastAPI(title=title)
+def _create_fastapi(title: str) -> TrackableFastAPI:
+    fastapi_app = TrackableFastAPI(title=title)
 
     fastapi_app.add_middleware(
         CORSMiddleware,
@@ -109,10 +114,6 @@ def _create_fastapi(title: str) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    fastapi_app.global_request_count = 0
-    fastapi_app.num_current_requests = 0
-    fastapi_app.last_processing_time = 0
 
     @fastapi_app.get("/", include_in_schema=False)
     async def docs():
@@ -128,11 +129,6 @@ def _create_fastapi(title: str) -> FastAPI:
 class _LoadBalancer(LightningWork):
     r"""The LoadBalancer is a LightningWork component that collects the requests and sends them to the prediciton API
     asynchronously using RoundRobin scheduling. It also performs auto batching of the incoming requests.
-
-    The LoadBalancer exposes system endpoints with a basic HTTP authentication, in order to activate the authentication
-    you need to provide a system password from environment variable::
-
-        lightning run app app.py --env AUTO_SCALER_AUTH_PASSWORD=PASSWORD
 
     After enabling you will require to send username and password from the request header for the private endpoints.
 
@@ -170,7 +166,7 @@ class _LoadBalancer(LightningWork):
         self._output_type = output_type
         self._timeout_keep_alive = timeout_keep_alive
         self._timeout_inference_request = timeout_inference_request
-        self._servers = []
+        self.servers = []
         self.max_batch_size = max_batch_size
         self.timeout_batching = timeout_batching
         self._iter = None
@@ -179,6 +175,7 @@ class _LoadBalancer(LightningWork):
         self._last_batch_sent = 0
         self._server_status = {}
         self._api_name = api_name
+        self.ready = False
 
         if not endpoint.startswith("/"):
             endpoint = "/" + endpoint
@@ -195,6 +192,11 @@ class _LoadBalancer(LightningWork):
             else:
                 raise ValueError("cold_start_proxy must be of type ColdStartProxy or str")
 
+    def get_internal_url(self) -> str:
+        if not self._internal_ip:
+            raise ValueError("Internal IP not set")
+        return f"http://{self._internal_ip}:{self._port}"
+
     async def send_batch(self, batch: List[Tuple[str, _BatchRequestModel]], server_url: str):
         request_data: List[_LoadBalancer._input_type] = [b[1] for b in batch]
         batch_request_data = _BatchRequestModel(inputs=request_data)
@@ -206,12 +208,14 @@ class _LoadBalancer(LightningWork):
                     "accept": "application/json",
                     "Content-Type": "application/json",
                 }
+                print(f"Sending request to {batch[0][0]}")
                 async with session.post(
                         f"{server_url}{self.endpoint}",
                         json=batch_request_data.dict(),
                         timeout=self._timeout_inference_request,
                         headers=headers,
                 ) as response:
+                    print(f"Got response from {batch[0][0]}")
                     # resetting the server status so other requests can be
                     # scheduled on this node
                     if server_url in self._server_status:
@@ -226,6 +230,7 @@ class _LoadBalancer(LightningWork):
                     if len(batch) != len(outputs):
                         raise RuntimeError(f"result has {len(outputs)} items but batch is {len(batch)}")
                     result = {request[0]: r for request, r in zip(batch, outputs)}
+                    print("updating response", batch[0][0])
                     self._responses.update(result)
         except Exception as ex:
             result = {request[0]: ex for request in batch}
@@ -260,6 +265,7 @@ class _LoadBalancer(LightningWork):
             if server_url is None:
                 continue
             if batch and (is_batch_ready or is_batch_timeout):
+                print("consumer sending request", batch[0][0])
                 # find server with capacity
                 asyncio.create_task(self.send_batch(batch, server_url))
                 # resetting the batch array, TODO - not locking the array
@@ -269,11 +275,11 @@ class _LoadBalancer(LightningWork):
     async def process_request(self, data: BaseModel, request_id=None):
         if request_id is None:
             request_id = uuid.uuid4().hex
-        if not self._servers and not self._cold_start_proxy:
+        if not self.servers and not self._cold_start_proxy:
             raise HTTPException(500, "None of the workers are healthy!")
 
         # if no servers are available, proxy the request to cold start proxy handler
-        if not self._servers and self._cold_start_proxy:
+        if not self.servers and self._cold_start_proxy:
             return await self._cold_start_proxy.handle_request(data)
 
         # if out of capacity, proxy the request to cold start proxy handler
@@ -281,10 +287,12 @@ class _LoadBalancer(LightningWork):
             return await self._cold_start_proxy.handle_request(data)
 
         # if we have capacity, process the request
+        print("appended to batch", request_id)
         self._batch.append((request_id, data))
         while True:
             await asyncio.sleep(0.05)
             if request_id in self._responses:
+                print("found response", request_id)
                 result = self._responses[request_id]
                 del self._responses[request_id]
                 _maybe_raise_granular_exception(result)
@@ -297,20 +305,18 @@ class _LoadBalancer(LightningWork):
         """
         if not self._fastapi_app:
             return False
-        active_server_count = len(self._servers)
+        active_server_count = len(self.servers)
         max_processable = self.max_batch_size * active_server_count
         current_req_count = self._fastapi_app.num_current_requests
         return current_req_count < max_processable
 
     def run(self):
-        logger.info(f"servers: {self._servers}")
-        lock = asyncio.Lock()
+        logger.info(f"servers: {self.servers}")
 
-        self._iter = cycle(self._servers)
+        self._iter = cycle(self.servers)
         self._last_batch_sent = time.time()
 
         fastapi_app = _create_fastapi("Load Balancer")
-        security = HTTPBasic()
         fastapi_app.SEND_TASK = None
         self._fastapi_app = fastapi_app
 
@@ -340,8 +346,8 @@ class _LoadBalancer(LightningWork):
         @fastapi_app.get("/system/info", response_model=_SysInfo)
         async def sys_info():
             return _SysInfo(
-                num_workers=len(self._servers),
-                servers=self._servers,
+                num_workers=len(self.servers),
+                servers=self.servers,
                 num_requests=fastapi_app.num_current_requests,
                 processing_time=fastapi_app.last_processing_time,
                 global_request_count=fastapi_app.global_request_count,
@@ -349,9 +355,8 @@ class _LoadBalancer(LightningWork):
 
         @fastapi_app.put("/system/update-servers")
         async def update_servers(servers: List[str]):
-            async with lock:
-                self._servers = servers
-            self._iter = cycle(self._servers)
+            self.servers = servers
+            self._iter = cycle(self.servers)
             updated_servers = set()
             # do not try to loop over the dict keys as the dict might change from other places
             existing_servers = list(self._server_status.keys())
@@ -376,7 +381,7 @@ class _LoadBalancer(LightningWork):
             )
 
         logger.info(f"Your load balancer has started. The endpoint is 'http://{self.host}:{self.port}{self.endpoint}'")
-
+        self.ready = True
         uvicorn.run(
             fastapi_app,
             host=self.host,
@@ -391,42 +396,47 @@ class _LoadBalancer(LightningWork):
 
         AutoScaler uses this method to increase/decrease the number of works.
         """
-        old_servers = set(self._servers)
-        server_urls: List[str] = [server.url for server in server_works if server.url]
-        new_servers = set(server_urls)
+        old_server_urls = set(self.servers)
+        # TODO _internal_ip should populate right value when running outside k8s or on a different cluster
+        current_server_urls = {
+            f"http://{server._internal_ip}:{server._port}"
+            for server in server_works
+            if server._internal_ip
+        }
 
-        if new_servers == old_servers:
+        # doing nothing if no server work has been added/removed
+        if old_server_urls == current_server_urls:
             return
 
-        if new_servers - old_servers:
-            logger.info(f"servers added: {new_servers - old_servers}")
+        # checking if the url is ready or not
+        available_urls = set()
+        for url in current_server_urls:
+            try:
+                _ = requests.get(url)
+            except requests.exceptions.ConnectionError:
+                continue
+            else:
+                available_urls.add(url)
+        if old_server_urls == available_urls:
+            return
 
-        deleted_servers = old_servers - new_servers
-        if deleted_servers:
-            logger.info(f"servers deleted: {deleted_servers}")
+        newly_added = available_urls - old_server_urls
+        if newly_added:
+            logger.info(f"servers added: {newly_added}")
 
-        self.send_request_to_update_servers(server_urls)
+        deleted = old_server_urls - available_urls
+        if deleted:
+            logger.info(f"servers deleted: {deleted}")
+        print("updating servers", available_urls)
+        self.send_request_to_update_servers(list(available_urls))
 
     def send_request_to_update_servers(self, servers: List[str]):
-        AUTHORIZATION_TYPE = "Basic"
-        USERNAME = "lightning"
-        AUTO_SCALER_AUTH_PASSWORD = os.environ.get("AUTO_SCALER_AUTH_PASSWORD", "")
-
         try:
-            param = f"{USERNAME}:{AUTO_SCALER_AUTH_PASSWORD}".encode()
-            data = b64encode(param).decode("utf-8")
-        except (ValueError, UnicodeDecodeError) as e:
-            raise HTTPException(
-                status_code=HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Basic"},
-            ) from e
-        headers = {
-            "accept": "application/json",
-            "username": USERNAME,
-            "Authorization": AUTHORIZATION_TYPE + " " + data,
-        }
-        response = requests.put(f"{self.url}/system/update-servers", json=servers, headers=headers, timeout=10)
+            internal_url = self.get_internal_url()
+        except ValueError:
+            logger.warn("Cannot update servers as internal_url is not set")
+            return
+        response = requests.put(f"{internal_url}/system/update-servers", json=servers, timeout=10)
         response.raise_for_status()
 
     @staticmethod
@@ -604,6 +614,10 @@ class AutoScaler(LightningFlow):
             self.add_work(work)
 
     @property
+    def ready(self) -> bool:
+        return self.load_balancer.ready
+
+    @property
     def workers(self) -> List[LightningWork]:
         return [self.get_work(i) for i in range(self.num_replicas)]
 
@@ -692,7 +706,12 @@ class AutoScaler(LightningFlow):
     @property
     def num_pending_requests(self) -> int:
         """Fetches the number of pending requests via load balancer."""
-        return int(requests.get(f"{self.load_balancer.url}/num-requests").json())
+        try:
+            load_balancer_url = self.load_balancer.get_internal_url()
+        except ValueError:
+            logger.warn("Cannot update servers as internal_url is not set")
+            return 0
+        return int(requests.get(f"{load_balancer_url}/num-requests").json())
 
     @property
     def num_pending_works(self) -> int:
