@@ -52,7 +52,7 @@ component = AutoScaler(
 
     # autoscaler args
     min_replicas=1,
-    max_replicas=3,
+    max_replicas=5,
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=300,  # 30 minutes
@@ -60,7 +60,6 @@ component = AutoScaler(
     timeout_batching=2,
     input_type=Text,
     output_type=Image,
-    cold_start_proxy=CustomColdStartProxy(proxy_url=PROXY_URL),
 )
 
 app = L.LightningApp(component)
