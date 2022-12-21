@@ -31,6 +31,7 @@ class DiffusionServer(L.app.components.PythonServer):
         ).to(device)
 
     def predict(self, requests):
+        print("got the requests")
         start = time.time()
         batch_size = len(requests.inputs)
         texts = [request.text for request in requests.inputs]
@@ -55,7 +56,7 @@ component = AutoScaler(
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=300,  # 30 minutes
-    max_batch_size=8,
+    max_batch_size=1,
     timeout_batching=2,
     input_type=Text,
     output_type=Image,
