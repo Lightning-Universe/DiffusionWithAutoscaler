@@ -423,6 +423,10 @@ class _LoadBalancer(LightningWork):
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Basic"},
             ) from e
+
+        if not self.load_balancer._internal_ip:
+            return 0
+
         headers = {
             "accept": "application/json",
             "username": USERNAME,
@@ -695,6 +699,8 @@ class AutoScaler(LightningFlow):
     @property
     def num_pending_requests(self) -> int:
         """Fetches the number of pending requests via load balancer."""
+        if not self.load_balancer._internal_ip:
+            return 0
         return int(requests.get(f"http://{self.load_balancer._internal_ip}:{self.load_balancer._port}/num-requests").json())
 
     @property
