@@ -417,6 +417,8 @@ class _LoadBalancer(LightningWork):
                 continue
             else:
                 available_urls.add(url)
+        if old_server_urls == available_urls:
+            return
 
         newly_added = available_urls - old_server_urls
         if newly_added:
