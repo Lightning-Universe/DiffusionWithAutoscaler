@@ -175,6 +175,7 @@ class _LoadBalancer(LightningWork):
         self._last_batch_sent = 0
         self._server_status = {}
         self._api_name = api_name
+        self.ready = False
 
         if not endpoint.startswith("/"):
             endpoint = "/" + endpoint
@@ -380,7 +381,7 @@ class _LoadBalancer(LightningWork):
             )
 
         logger.info(f"Your load balancer has started. The endpoint is 'http://{self.host}:{self.port}{self.endpoint}'")
-
+        self.ready = True
         uvicorn.run(
             fastapi_app,
             host=self.host,
@@ -611,6 +612,10 @@ class AutoScaler(LightningFlow):
         for _ in range(min_replicas):
             work = self.create_work()
             self.add_work(work)
+
+    @property
+    def ready(self) -> bool:
+        return self.load_balancer.ready
 
     @property
     def workers(self) -> List[LightningWork]:
