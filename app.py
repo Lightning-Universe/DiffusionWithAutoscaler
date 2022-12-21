@@ -1,5 +1,5 @@
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
-# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git@debugging'
+# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git'
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/main/configs/stable-diffusion/v2-inference-v.yaml -o v2-inference-v.yaml
 import time
@@ -56,7 +56,7 @@ component = AutoScaler(
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=300,  # 30 minutes
-    max_batch_size=2,
+    max_batch_size=6,
     timeout_batching=2,
     input_type=Text,
     output_type=Image,
