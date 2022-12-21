@@ -18,8 +18,9 @@ class Image(BaseModel):
     @staticmethod
     def request_code_sample(url: str) -> str:
         return (
-                """import base64, requests
+                """import base64
 from pathlib import Path
+import requests
 
 imgurl = "https://raw.githubusercontent.com/Lightning-AI/LAI-Triton-Server-Component/main/catimage.png"
 img = requests.get(imgurl).content
