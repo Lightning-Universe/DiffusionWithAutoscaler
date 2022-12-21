@@ -413,7 +413,6 @@ class _LoadBalancer(LightningWork):
             try:
                 _ = requests.get(url)
             except requests.exceptions.ConnectionError:
-                print(f"Found Server {url} but is not ready yet")
                 continue
             else:
                 available_urls.add(url)
