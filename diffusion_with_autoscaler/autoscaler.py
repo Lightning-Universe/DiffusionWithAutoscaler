@@ -424,8 +424,8 @@ class _LoadBalancer(LightningWork):
                 headers={"WWW-Authenticate": "Basic"},
             ) from e
 
-        if not self.load_balancer._internal_ip:
-            return 0
+        if not self._internal_ip:
+            return
 
         headers = {
             "accept": "application/json",
