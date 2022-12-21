@@ -175,7 +175,6 @@ class _LoadBalancer(LightningWork):
         self._last_batch_sent = 0
         self._server_status = {}
         self._api_name = api_name
-        self._internal_url = f"http://{self._internal_ip}:{self._port}"
 
         if not endpoint.startswith("/"):
             endpoint = "/" + endpoint
@@ -191,6 +190,10 @@ class _LoadBalancer(LightningWork):
                 self._cold_start_proxy = cold_start_proxy
             else:
                 raise ValueError("cold_start_proxy must be of type ColdStartProxy or str")
+
+    @property
+    def internal_url(self) -> str:
+        return f"http://{self._internal_ip}:{self._port}"
 
     async def send_batch(self, batch: List[Tuple[str, _BatchRequestModel]], server_url: str):
         request_data: List[_LoadBalancer._input_type] = [b[1] for b in batch]
@@ -392,6 +395,7 @@ class _LoadBalancer(LightningWork):
         AutoScaler uses this method to increase/decrease the number of works.
         """
         old_server_urls = set(self.servers)
+        # TODO _internal_ip should populate right value when running outside k8s or on a different cluster
         current_server_urls = {f"http://{server._internal_ip}:{server._port}" for server in server_works}
 
         # doing nothing if no server work has been added/removed
@@ -409,7 +413,7 @@ class _LoadBalancer(LightningWork):
         self.send_request_to_update_servers(list(current_server_urls))
 
     def send_request_to_update_servers(self, servers: List[str]):
-        response = requests.put(f"{self._internal_url}/system/update-servers", json=servers, timeout=10)
+        response = requests.put(f"{self.internal_url}/system/update-servers", json=servers, timeout=10)
         response.raise_for_status()
 
     @staticmethod
