@@ -18,7 +18,7 @@ def load_img(path):
 ENDPOINT = "http://localhost:50177/predict"
 # ENDPOINT = "https://bmdla-01gmr4je8s8zgnzpv8vyxpwn61.litng-ai-03.litng.ai/predict"
 TEXT = "A fantasy landscape, trending on artstation"
-IMAGE = load_img("../assets/sketch-mountains-input.jpg")
+IMAGE = load_img("./assets/sketch-mountains-input.jpg")
 
 
 async def async_request(counter, sleep = 0):

@@ -20,7 +20,7 @@ for i in range(100):
     start = time.time()
     response = requests.post(ENDPOINT, json={
         "text": "A fantasy landscape, trending on artstation",
-        "image": load_img("../assets/sketch-mountains-input.jpg"),
+        "image": load_img("./assets/sketch-mountains-input.jpg"),
     })
     json = response.json()
     if "image" in json:

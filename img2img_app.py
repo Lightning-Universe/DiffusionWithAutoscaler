@@ -6,7 +6,7 @@ import time
 import os
 import lightning as L
 import base64, io, ldm, torch
-from diffusion_with_autoscaler import AutoScaler, BatchTextImage, BatchImage, Text, Image, TextImage
+from diffusion_with_autoscaler import AutoScaler, BatchTextImage, BatchImage, Image, TextImage
 
 
 class Img2ImgDiffusionServer(L.app.components.PythonServer):
