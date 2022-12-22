@@ -32,17 +32,23 @@ class DiffusionServer(L.app.components.PythonServer):
 
     def predict(self, requests):
         print("got the requests")
-        start = time.time()
+        t0 = time.time()
         batch_size = len(requests.inputs)
         texts = [request.text for request in requests.inputs]
+        t1 = time.time()
         images = self._model.predict_step(prompts=texts, batch_idx=0)
+        t2 = time.time()
         results = []
         for image in images:
             buffer = io.BytesIO()
             image.save(buffer, format="PNG")
             image_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
             results.append(image_str)
-        print(f"finish predicting with batch size {batch_size} in {time.time()- start} seconds")
+        t3 = time.time()
+        print(f"finish predicting with batch size {batch_size}")
+        print(f"t1-t0: {t1-t0}")
+        print(f"t2-t1: {t2-t1}")
+        print(f"t3-t2: {t3-t2}")
         return BatchImage(outputs=[{"image": image_str} for image_str in results])
 
 
@@ -57,7 +63,7 @@ component = AutoScaler(
     scale_out_interval=0,
     scale_in_interval=300,  # 30 minutes
     max_batch_size=6,
-    timeout_batching=2,
+    max_batch_delay=2,
     input_type=Text,
     output_type=Image,
 )

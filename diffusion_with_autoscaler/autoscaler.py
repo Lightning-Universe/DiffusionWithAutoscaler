@@ -41,12 +41,12 @@ class TrackableFastAPI(FastAPI):
 
 
 class RequestProcessor:
-    def __init__(self, max_batch_size: int, timeout_batching: int):
+    def __init__(self, max_batch_size: int, max_batch_delay: int):
         self.queue = multiprocessing.Queue()
         self.active_server_queue = multiprocessing.Queue()
         self._batch = []
         self._max_batch_size = max_batch_size
-        self._timeout_batching = timeout_batching
+        self._max_batch_delay = max_batch_delay
 
     def start(self):
         while True:
@@ -58,7 +58,7 @@ class RequestProcessor:
                 pass
             batch = self._batch[:self._max_batch_size]
             is_batch_ready = len(batch) == self.max_batch_size
-            is_batch_timeout = time.time() - self._last_batch_sent > self.timeout_batching
+            is_batch_timeout = time.time() - self._last_batch_sent > self.max_batch_delay
             if batch and (is_batch_ready or is_batch_timeout):
                 asyncio.create_task(self.send_batch(batch))
                 # resetting the batch array, TODO - not locking the array
@@ -137,7 +137,7 @@ class _LoadBalancer(LightningWork):
         output_type: Output type.
         endpoint: The REST API path.
         max_batch_size: The number of requests processed at once.
-        timeout_batching: The number of seconds to wait before sending the requests to process in order to allow for
+        max_batch_delay: The number of seconds to wait before sending the requests to process in order to allow for
             requests to be batched. In any case, requests are processed as soon as `max_batch_size` is reached.
         timeout_keep_alive: The number of seconds until it closes Keep-Alive connections if no new data is received.
         timeout_inference_request: The number of seconds to wait for inference.
@@ -154,7 +154,7 @@ class _LoadBalancer(LightningWork):
             endpoint: str,
             max_batch_size: int = 8,
             # all timeout args are in seconds
-            timeout_batching: float = 1,
+            max_batch_delay: float = 1,
             timeout_keep_alive: int = 60,
             timeout_inference_request: int = 60,
             api_name: Optional[str] = "API",  # used for displaying the name in the UI
@@ -168,7 +168,7 @@ class _LoadBalancer(LightningWork):
         self._timeout_inference_request = timeout_inference_request
         self.servers = []
         self.max_batch_size = max_batch_size
-        self.timeout_batching = timeout_batching
+        self.max_batch_delay = max_batch_delay
         self._iter = None
         self._batch = []
         self._responses = {}  # {request_id: response}
@@ -258,7 +258,7 @@ class _LoadBalancer(LightningWork):
             await asyncio.sleep(0.05)
             batch = self._batch[: self.max_batch_size]
             is_batch_ready = len(batch) == self.max_batch_size
-            is_batch_timeout = time.time() - self._last_batch_sent > self.timeout_batching
+            is_batch_timeout = time.time() - self._last_batch_sent > self.max_batch_delay
             server_url = self._find_free_server()
             # setting the server status to be busy! This will be reset by
             # the send_batch function after the server responds
@@ -506,7 +506,11 @@ class AutoScaler(LightningFlow):
         scale_in_interval: The number of seconds to wait before checking whether to decrease the number of servers.
         endpoint: Provide the REST API path.
         max_batch_size: (auto-batching) The number of requests to process at once.
-        timeout_batching: (auto-batching) The number of seconds to wait before sending the requests to process.
+        max_batch_delay: (auto-batching) The number of seconds to wait before sending the requests to workers.
+        request_timeout: The number of seconds to wait before timing out a request. A request may timeout because of
+            several factors, including the worker being overloaded, the worker being setting up or not ready yet etc.
+            Sometimes, it's good to catch the timeout from the client and retry or fallback to a different solution.
+            If not set, request won't timeout from loadbalancer and will be waiting/retrying until it gets a response.
         input_type: Input type.
         output_type: Output type.
         cold_start_proxy: If provided, the proxy will be used while the worker machines are warming up.
@@ -554,7 +558,7 @@ class AutoScaler(LightningFlow):
                 scale_out_interval=10,
                 scale_in_interval=10,
                 max_batch_size=8,  # for auto batching
-                timeout_batching=1,  # for auto batching
+                max_batch_delay=1,  # for auto batching
             )
         )
     """
@@ -564,11 +568,12 @@ class AutoScaler(LightningFlow):
             work_cls: Type[LightningWork],
             min_replicas: int = 1,
             max_replicas: int = 4,
-            scale_out_interval: int = 10,
+            scale_out_interval: int = 0,
             scale_in_interval: int = 10,
             max_batch_size: int = 8,
-            timeout_batching: float = 1,
-            endpoint: str = "api/predict",
+            max_batch_delay: float = 1,
+            request_timeout: float = 10,
+            endpoint: str = "/predict",
             input_type: Type[BaseModel] = Dict,
             output_type: Type[BaseModel] = Dict,
             cold_start_proxy: Union[ColdStartProxy, str, None] = None,
@@ -605,7 +610,8 @@ class AutoScaler(LightningFlow):
             output_type=self._output_type,
             endpoint=endpoint,
             max_batch_size=max_batch_size,
-            timeout_batching=timeout_batching,
+            max_batch_delay=max_batch_delay,
+            request_timeout=request_timeout,
             cache_calls=True,
             parallel=True,
             api_name=self._work_cls.__name__,
