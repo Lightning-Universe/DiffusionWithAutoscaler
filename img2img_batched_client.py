@@ -66,7 +66,7 @@ def run_benchmark(sleep_formats):
 
 def two_requests_every_8_seconds():
     requests = []
-    for idx in range(0, 30, 8):
+    for idx in range(0, 120, 8):
         requests.append(idx)
         requests.append(idx)
     return requests
