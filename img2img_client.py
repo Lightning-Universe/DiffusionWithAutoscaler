@@ -5,8 +5,8 @@ import requests
 from PIL import Image
 from io import BytesIO
 
-ENDPOINT = "http://localhost:50121/predict"
-# ENDPOINT = "https://bmdla-01gmr4je8s8zgnzpv8vyxpwn61.litng-ai-03.litng.ai/predict"
+ENDPOINT = "http://localhost:50121/predict" # local
+ENDPOINT = "https://vqovq-01gmww8n4z749ynhqfvesjcfx5.litng-ai-03.litng.ai/predict" # cloud
 
 def load_img(path):
     image = Image.open(path).convert("RGB")
@@ -23,10 +23,10 @@ for i in range(100):
         "image": load_img("./assets/sketch-mountains-input.jpg"),
     })
     json = response.json()
+    print(i, time.time() - start)
     if "image" in json:
         img = json["image"]
         img = base64.b64decode(img.encode("utf-8"))
         Path(f"response_{i}.png").write_bytes(img)
-        print(i, time.time() - start)
     else:
         raise Exception(json)

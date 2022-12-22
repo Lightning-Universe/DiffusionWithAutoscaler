@@ -16,7 +16,7 @@ def load_img(path):
     return base64.b64encode(encoded).decode("ascii")
 
 ENDPOINT = "http://localhost:50177/predict"
-# ENDPOINT = "https://bmdla-01gmr4je8s8zgnzpv8vyxpwn61.litng-ai-03.litng.ai/predict"
+ENDPOINT = "https://vqovq-01gmww8n4z749ynhqfvesjcfx5.litng-ai-03.litng.ai/predict"
 TEXT = "A fantasy landscape, trending on artstation"
 IMAGE = load_img("./assets/sketch-mountains-input.jpg")
 
@@ -35,7 +35,6 @@ async def async_request(counter, sleep = 0):
                 img = response["image"]
                 img = base64.b64decode(img.encode("utf-8"))
                 Path(f"response_{counter}.png").write_bytes(img)
-                end = time.time() 
             else:
                 raise Exception(response)
     return end - start
@@ -64,13 +63,13 @@ def run_benchmark(sleep_formats):
     print("Overall Time", time.time() - t0)
 
 
-def two_requests_every_8_seconds():
+def two_requests_every_N_seconds(seconds):
     requests = []
-    for idx in range(0, 120, 8):
+    for idx in range(0, 120, seconds):
         requests.append(idx)
         requests.append(idx)
     return requests
 
 
 if __name__ == "__main__":
-    run_benchmark(two_requests_every_8_seconds())
+    run_benchmark(two_requests_every_N_seconds(9))
