@@ -15,9 +15,9 @@ def load_img(path):
 
 for i in range(100):
     start = time.time()
-    response = requests.post('http://127.0.0.1:50551/predict', json={
+    response = requests.post('{REPLACE_ME}', json={
         "text": "A fantasy landscape, trending on artstation",
-        "image": load_img("assets/sketch-mountains-input.jpg"),
+        "image": load_img("../assets/sketch-mountains-input.jpg"),
     })
     json = response.json()
     if "image" in json:

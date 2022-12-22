@@ -110,3 +110,54 @@ class BatchImage(BaseModel):
 img = base64.b64decode(img.encode("utf-8"))
 Path("response.png").write_bytes(img)
 """
+
+
+class TextImage(BaseModel):
+    text: Optional[str]
+    image: Optional[str]
+
+    @staticmethod
+    def get_sample_data() -> Dict[Any, Any]:
+        return {"text": "A portrait of a person looking away from the camera"}
+
+    @staticmethod
+    def request_code_sample(url: str) -> str:
+        return (
+                """import base64
+from pathlib import Path
+import requests
+response = requests.post('"""
+                + url
+                + """', json={"text": "A portrait of a person looking away from the camera", "image": "base64 encoding of your image"})
+# If you are using basic authentication for your app, you should add your credentials to the request:
+# response = requests.post('"""
+                + url
+                + """', json={"text": "A portrait of a person looking away from the camera", "image": "base64 encoding of your image"},
+ auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
+"""
+        )
+
+
+class BatchTextImage(BaseModel):
+    # Note: field name must be `inputs`
+    inputs: List[TextImage]
+
+    @staticmethod
+    def request_code_sample(url: str) -> str:
+        return (
+                """import base64
+from pathlib import Path
+import requests
+response = requests.post('"""
+                + url
+                + """', json={
+"inputs": [{"text": "A portrait of a person looking away from the camera", "image": "base64 encoding of your image"}]
+})
+# If you are using basic authentication for your app, you should add your credentials to the request:
+# response = requests.post('"""
+                + url
+                + """', json={
+# "inputs": [{"text": "A portrait of a person looking away from the camera", "image": "base64 encoding of your image"}],
+# }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
+"""
+        )

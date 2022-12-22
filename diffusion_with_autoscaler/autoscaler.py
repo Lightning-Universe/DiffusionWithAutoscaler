@@ -399,7 +399,7 @@ class _LoadBalancer(LightningWork):
         old_server_urls = set(self.servers)
         # TODO _internal_ip should populate right value when running outside k8s or on a different cluster
         current_server_urls = {
-            f"http://{server._internal_ip}:{server._port}"
+            f"http://{server._internal_ip}:{server.port}"
             for server in server_works
             if server._internal_ip
         }
