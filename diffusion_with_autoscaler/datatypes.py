@@ -127,6 +127,10 @@ class TextImage(BaseModel):
 from pathlib import Path
 import requests
 
+url = "https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpgs"
+image = requests.get(url).content
+image = base64.b64encode(img).decode("UTF-8")
+
 response = requests.post('"""
     + url
     + """', 
@@ -137,7 +141,7 @@ response = requests.post('"""
 )
 
 # If you are using basic authentication for your app, you should add your credentials to the request:
-response = requests.post('"""
+# response = requests.post('"""
     + url
     + """', json={
         "text": "A portrait of a person looking away from the camera", 
@@ -157,19 +161,23 @@ class BatchTextImage(BaseModel):
 from pathlib import Path
 import requests
 
+url = "https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg"
+image = requests.get(url).content
+image = base64.b64encode(img).decode("UTF-8")
+
 response = requests.post('"""
     + url
     + """', 
     json={
         "inputs": [{
             "text": "A portrait of a person looking away from the camera", 
-            "image": "base64 encoding of your image"
+            "image": image,
         }]
     }
 )
 
 # If you are using basic authentication for your app, you should add your credentials to the request:
-response = requests.post('"""
+# response = requests.post('"""
     + url
     + """',
     json={
