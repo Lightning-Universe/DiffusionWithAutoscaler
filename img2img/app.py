@@ -3,7 +3,7 @@
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import time
-
+import os
 import lightning as L
 import base64, io, ldm, torch
 from diffusion_with_autoscaler import AutoScaler, BatchTextImage, BatchImage, Text, Image, TextImage
@@ -19,12 +19,12 @@ class Img2ImgDiffusionServer(L.app.components.PythonServer):
         )
 
     def setup(self):
-        # cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
-        # os.system(cmd)
+        cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
+        os.system(cmd)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self._model = ldm.lightning.LightningStableImg2ImgDiffusion(
             config_path="v1-inference.yaml",
-            checkpoint_path="../../stable-diffusion/v1-5-pruned-emaonly.ckpt",
+            checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
         )
 
