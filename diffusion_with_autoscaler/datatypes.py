@@ -64,13 +64,7 @@ response = requests.post('"""
             + url
             + """', json={
 "text": "A portrait of a person looking away from the camera"
-})
-# If you are using basic authentication for your app, you should add your credentials to the request:
-# response = requests.post('"""
-            + url
-            + """', json={
-# "text": "A portrait of a person looking away from the camera"
-# }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
+}, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
 """
         )
 
@@ -85,17 +79,12 @@ class BatchText(BaseModel):
                 """import base64
 from pathlib import Path
 import requests
+
 response = requests.post('"""
                 + url
                 + """', json={
-"inputs": [{"text": "A portrait of a person looking away from the camera"}]
-})
-# If you are using basic authentication for your app, you should add your credentials to the request:
-# response = requests.post('"""
-                + url
-                + """', json={
-# "inputs": [{"text": "A portrait of a person looking away from the camera"}],
-# }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
+"inputs": [{"text": "A portrait of a person looking away from the camera"}],
+}, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
 """
         )
 
