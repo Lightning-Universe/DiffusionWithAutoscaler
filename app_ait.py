@@ -1,3 +1,4 @@
+# !pip install diffusers transformers
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 # !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git'
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
@@ -30,30 +31,31 @@ class DiffusionServer(L.app.components.PythonServer):
         )
 
     def setup(self):
-        filename = "ait_model.so"
-        cmd = f"curl -C - https://lightning-example-public.s3.amazonaws.com/stable-diffusion-2-bs1-ait.tar.gz -o {filename}"  # FIXME: Replace with AIT
+        cmd = "curl -C - https://lightning-example-public.s3.amazonaws.com/stable-diffusion-2-bs1-ait.tar.gz -o stable-diffusion-2-bs1-ait.tar.gz"
         os.system(cmd)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        cmd = "tar xzvf stable-diffusion-2-bs1-ait.tar.gz"
+        os.system(cmd)
+        cmd = "ln -s stable-diffusion-2-bs1-ait tmp"
+        os.system(cmd)
 
+        # TODO: Switch to non-AIT model when not on cuda device
+        # TODO: Use local file completely instead of partially relying on "stabilityai/stable-diffusion-2"
+        scheduler = EulerDiscreteScheduler.from_pretrained("stabilityai/stable-diffusion-2", subfolder="scheduler")
         self._model = StableDiffusionAITPipeline.from_pretrained(
-            pretrained_model_name_or_path=filename,
-        )
-        # self._model = ldm.lightning.LightningStableDiffusion(
-        #     config_path="v2-inference-v.yaml",
-        #     checkpoint_path="768-v-ema.ckpt",
-        #     device=device,
-        # ).to(device)
-        # if torch.cuda.is_available():
-        #     torch.cuda.empty_cache()
+            "stabilityai/stable-diffusion-2",
+            scheduler=scheduler,
+            revision="fp16",
+            torch_dtype=torch.float16,
+        ).to("cuda")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def predict(self, requests):
         start = time.time()
         batch_size = len(requests.inputs)
         texts = [request.text for request in requests.inputs]
-        images = self._model.predict_step(
-            prompts=texts,
-            batch_idx=0,  # or whatever
-        )
+        # images = self._model(prompt=texts, 512, 512).images
+        images = self._model(prompt=texts[0], 512, 512).images
         results = []
         for image in images:
             buffer = io.BytesIO()
