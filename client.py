@@ -2,28 +2,14 @@ import base64
 import time
 from pathlib import Path
 import requests
-from PIL import Image
-from io import BytesIO
-
-def load_img(path):
-    image = Image.open(path).convert("RGB")
-    buffer = BytesIO()
-    image.save(buffer, format="PNG")
-    buffer.seek(0)
-    encoded = buffer.getvalue()
-    return base64.b64encode(encoded).decode("ascii")
 
 for i in range(100):
     start = time.time()
-    response = requests.post('http://127.0.0.1:50551/predict', json={
-        "text": "A fantasy landscape, trending on artstation",
-        "image": load_img("assets/sketch-mountains-input.jpg"),
+    response = requests.post('https://vsjly-01gmqtjwnyy1sd1qgkv545btyp.litng-ai-03.litng.ai/predict', json={
+        "text": "A portrait of a person looking away from the camera"
     })
-    json = response.json()
-    if "image" in json:
-        img = json["image"]
-        img = base64.b64decode(img.encode("utf-8"))
-        Path(f"response_{i}.png").write_bytes(img)
-        print(i, time.time() - start)
-    else:
-        raise Exception(json)
+
+    img = response.json()["image"]
+    img = base64.b64decode(img.encode("utf-8"))
+    Path(f"response_{i}.png").write_bytes(img)
+    print(i, time.time() - start)
