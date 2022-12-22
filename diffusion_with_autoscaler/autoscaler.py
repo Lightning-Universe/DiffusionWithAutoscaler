@@ -172,7 +172,7 @@ class _LoadBalancer(LightningWork):
         self._iter = None
         self._batch = []
         self._responses = {}  # {request_id: response}
-        self._last_batch_sent = 0
+        self._last_batch_sent = None
         self._server_status = {}
         self._api_name = api_name
         self.ready = False
@@ -250,18 +250,25 @@ class _LoadBalancer(LightningWork):
         Two instances of this function should not be running with shared `_state_server` as that would create race
         conditions
         """
-        self._last_batch_sent = time.time()
         while True:
             await asyncio.sleep(0.05)
             batch = self._batch[: self.max_batch_size]
             is_batch_ready = len(batch) == self.max_batch_size
-            is_batch_timeout = time.time() - self._last_batch_sent > self.timeout_batching
+            if len(batch) > 0 and self._last_batch_sent is None:
+                self._last_batch_sent = time.time()
+
+            if self._last_batch_sent:
+                is_batch_timeout = time.time() - self._last_batch_sent > self.timeout_batching
+            else:
+                is_batch_timeout = False
+
             server_url = self._find_free_server()
             # setting the server status to be busy! This will be reset by
             # the send_batch function after the server responds
             if server_url is None:
                 continue
             if batch and (is_batch_ready or is_batch_timeout):
+                self._server_status[server_url] = False
                 # find server with capacity
                 asyncio.create_task(self.send_batch(batch, server_url))
                 # resetting the batch array, TODO - not locking the array
@@ -308,7 +315,6 @@ class _LoadBalancer(LightningWork):
         logger.info(f"servers: {self.servers}")
 
         self._iter = cycle(self.servers)
-        self._last_batch_sent = time.time()
 
         fastapi_app = _create_fastapi("Load Balancer")
         fastapi_app.SEND_TASK = None
@@ -393,7 +399,7 @@ class _LoadBalancer(LightningWork):
         old_server_urls = set(self.servers)
         # TODO _internal_ip should populate right value when running outside k8s or on a different cluster
         current_server_urls = {
-            f"http://{server._internal_ip}:{server._port}"
+            f"http://{server._internal_ip}:{server.port}"
             for server in server_works
             if server._internal_ip
         }

@@ -129,3 +129,7 @@ dmypy.json
 .pyre/
 .idea
 .lightning
+
+v1-5-pruned-emaonly.ckpt
+v1-inference.yaml
+768-v-ema.ckpt
