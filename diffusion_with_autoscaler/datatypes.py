@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any, List
 
 import requests
 from pydantic import BaseModel
+from textwrap import dedent
 
 
 class Image(BaseModel):
@@ -122,20 +123,28 @@ class TextImage(BaseModel):
 
     @staticmethod
     def request_code_sample(url: str) -> str:
-        return (
-                """import base64
+        return dedent("""import base64
 from pathlib import Path
 import requests
+
 response = requests.post('"""
-                + url
-                + """', json={"text": "A portrait of a person looking away from the camera", "image": "base64 encoding of your image"})
+    + url
+    + """', 
+    json={
+        "text": "A portrait of a person looking away from the camera", 
+        "image": "base64 encoding of your image"
+    }
+)
+
 # If you are using basic authentication for your app, you should add your credentials to the request:
-# response = requests.post('"""
-                + url
-                + """', json={"text": "A portrait of a person looking away from the camera", "image": "base64 encoding of your image"},
- auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
-"""
-        )
+response = requests.post('"""
+    + url
+    + """', json={
+        "text": "A portrait of a person looking away from the camera", 
+        "image": "base64 encoding of your image"
+    },
+    auth=requests.auth.HTTPBasicAuth('your_username', 'your_password')
+)""")
 
 
 class BatchTextImage(BaseModel):
@@ -144,20 +153,30 @@ class BatchTextImage(BaseModel):
 
     @staticmethod
     def request_code_sample(url: str) -> str:
-        return (
-                """import base64
+        return dedent("""import base64
 from pathlib import Path
 import requests
+
 response = requests.post('"""
-                + url
-                + """', json={
-"inputs": [{"text": "A portrait of a person looking away from the camera", "image": "base64 encoding of your image"}]
-})
+    + url
+    + """', 
+    json={
+        "inputs": [{
+            "text": "A portrait of a person looking away from the camera", 
+            "image": "base64 encoding of your image"
+        }]
+    }
+)
+
 # If you are using basic authentication for your app, you should add your credentials to the request:
-# response = requests.post('"""
-                + url
-                + """', json={
-# "inputs": [{"text": "A portrait of a person looking away from the camera", "image": "base64 encoding of your image"}],
-# }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
-"""
-        )
+response = requests.post('"""
+    + url
+    + """',
+    json={
+        "inputs": [{
+            "text": "A portrait of a person looking away from the camera", 
+            "image": "base64 encoding of your image"
+        }]
+    },
+    auth=requests.auth.HTTPBasicAuth('your_username', 'your_password')
+)""")

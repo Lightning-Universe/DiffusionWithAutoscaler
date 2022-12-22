@@ -29,7 +29,6 @@ class Img2ImgDiffusionServer(L.app.components.PythonServer):
         )
 
     def predict(self, requests):
-        print(requests)
         start = time.time()
         batch_size = len(requests.inputs)
         texts = [request.text for request in requests.inputs]
@@ -43,6 +42,10 @@ class Img2ImgDiffusionServer(L.app.components.PythonServer):
             results.append(image_str)
         print(f"finish predicting with batch size {batch_size} in {time.time()- start} seconds")
         return BatchImage(outputs=[{"image": image_str} for image_str in results])
+
+    def on_exit(self):
+        del self._model
+        torch.cuda.empty_cache()
 
 
 component = AutoScaler(
