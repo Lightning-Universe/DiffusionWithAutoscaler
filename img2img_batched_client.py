@@ -16,7 +16,7 @@ def load_img(path):
     return base64.b64encode(encoded).decode("ascii")
 
 ENDPOINT = "http://localhost:50177/predict" # local
-ENDPOINT = "https://jyopq-01gmwx6hjhetvq4qjtr5my2bek.litng-ai-03.litng.ai/predict" # cloud
+ENDPOINT = "https://iqjik-01gmwy9q97ajqnvn96n230c9w5.litng-ai-03.litng.ai/predict" # cloud
 TEXT = "A fantasy landscape, trending on artstation"
 IMAGE = load_img("./assets/sketch-mountains-input.jpg")
 
