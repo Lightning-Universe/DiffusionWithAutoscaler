@@ -1,12 +1,12 @@
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
-# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git'
+# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git@debugging2'
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/main/configs/stable-diffusion/v2-inference-v.yaml -o v2-inference-v.yaml
 import time
 
 import lightning as L
 import os, base64, io, ldm, torch
-from diffusion_with_autoscaler import CustomColdStartProxy, AutoScaler, BatchText, BatchImage, Text, Image
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 

@@ -572,7 +572,6 @@ class AutoScaler(LightningFlow):
             input_type: Type[BaseModel] = Dict,
             output_type: Type[BaseModel] = Dict,
             cold_start_proxy: Union[ColdStartProxy, str, None] = None,
-            *work_args: Any,
             **work_kwargs: Any,
     ) -> None:
         super().__init__()
@@ -580,7 +579,6 @@ class AutoScaler(LightningFlow):
         self._work_registry = {}
 
         self._work_cls = work_cls
-        self._work_args = work_args
         self._work_kwargs = work_kwargs
 
         self._input_type = input_type
@@ -598,6 +596,10 @@ class AutoScaler(LightningFlow):
         self._last_autoscale = time.time()
         self.fake_trigger = 0
 
+        for _ in range(min_replicas):
+            work = self.create_work()
+            self.add_work(work)
+
         self.load_balancer = _LoadBalancer(
             input_type=self._input_type,
             output_type=self._output_type,
@@ -609,9 +611,6 @@ class AutoScaler(LightningFlow):
             api_name=self._work_cls.__name__,
             cold_start_proxy=cold_start_proxy,
         )
-        for _ in range(min_replicas):
-            work = self.create_work()
-            self.add_work(work)
 
     @property
     def ready(self) -> bool:
@@ -628,9 +627,10 @@ class AutoScaler(LightningFlow):
             dict(
                 start_with_flow=False,
                 cloud_compute=cloud_compute.clone() if cloud_compute else None,
+                raise_exception=False,
             )
         )
-        return self._work_cls(*self._work_args, **self._work_kwargs)
+        return self._work_cls(**self._work_kwargs)
 
     def add_work(self, work) -> str:
         """Adds a new LightningWork instance.
