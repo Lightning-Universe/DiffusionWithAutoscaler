@@ -271,6 +271,7 @@ class _LoadBalancer(LightningWork):
             if server_url is None:
                 continue
             if batch and (is_batch_ready or is_batch_timeout):
+                self._server_status[server_url] = False
                 print("consumer sending request", batch[0][0])
                 # find server with capacity
                 asyncio.create_task(self.send_batch(batch, server_url))
