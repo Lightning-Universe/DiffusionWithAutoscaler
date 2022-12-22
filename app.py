@@ -6,7 +6,7 @@ import time
 
 import lightning as L
 import os, base64, io, ldm, torch
-from diffusion_with_autoscaler import CustomColdStartProxy, AutoScaler, BatchText, BatchImage, Text, Image
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
@@ -29,6 +29,7 @@ class DiffusionServer(L.app.components.PythonServer):
             checkpoint_path="768-v-ema.ckpt",
             device=device,
         ).to(device)
+        self._model.step = 20
 
     def predict(self, requests):
         print("got the requests")
@@ -55,7 +56,7 @@ component = AutoScaler(
     max_replicas=5,
     endpoint="/predict",
     scale_out_interval=0,
-    scale_in_interval=300,  # 30 minutes
+    scale_in_interval=30,
     max_batch_size=6,
     timeout_batching=2,
     input_type=Text,
