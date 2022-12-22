@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any, List
 
 import requests
 from pydantic import BaseModel
+from textwrap import dedent
 
 
 class Image(BaseModel):
@@ -110,3 +111,77 @@ class BatchImage(BaseModel):
 img = base64.b64decode(img.encode("utf-8"))
 Path("response.png").write_bytes(img)
 """
+
+
+class TextImage(BaseModel):
+    text: Optional[str]
+    image: Optional[str]
+
+    @staticmethod
+    def get_sample_data() -> Dict[Any, Any]:
+        return {"text": "A fantasy landscape, trending on artstation"}
+
+    @staticmethod
+    def request_code_sample(url: str) -> str:
+        return dedent("""import base64
+from pathlib import Path
+import requests
+
+url = "https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg"
+image = requests.get(url).content
+image = base64.b64encode(image).decode("ascii")
+
+response = requests.post('"""
+    + url
+    + """', 
+    json={
+        "text": "A fantasy landscape, trending on artstation", 
+        "image": image
+    }
+)
+
+# If you are using basic authentication for your app, you should add your credentials to the request:
+# response = requests.post('""" + url + """',
+#    json={
+#        "text": "A fantasy landscape, trending on artstation", 
+#        "image": image,
+#    },
+#    auth=requests.auth.HTTPBasicAuth('your_username', 'your_password')
+#)""")
+
+
+class BatchTextImage(BaseModel):
+    # Note: field name must be `inputs`
+    inputs: List[TextImage]
+
+    @staticmethod
+    def request_code_sample(url: str) -> str:
+        return dedent("""import base64
+from pathlib import Path
+import requests
+
+url = "https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg"
+image = requests.get(url).content
+image = base64.b64encode(image).decode("ascii")
+
+response = requests.post('"""
+    + url
+    + """', 
+    json={
+        "inputs": [{
+            "text": "A fantasy landscape, trending on artstation", 
+            "image": image,
+        }]
+    }
+)
+
+# If you are using basic authentication for your app, you should add your credentials to the request:
+# response = requests.post('""" + url + """',
+#    json={
+#        "inputs": [{
+#            "text": "A fantasy landscape, trending on artstation", 
+#            "image": image,
+#        }]
+#    },
+#    auth=requests.auth.HTTPBasicAuth('your_username', 'your_password')
+#)""")
