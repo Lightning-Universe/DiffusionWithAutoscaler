@@ -279,7 +279,9 @@ class _LoadBalancer(LightningWork):
         if request_id is None:
             request_id = uuid.uuid4().hex
         if not self.servers and not self._cold_start_proxy:
-            raise HTTPException(500, "None of the workers are healthy!")
+            # sleeping to trigger the scale up
+            await asyncio.sleep(10)
+            raise HTTPException(503, "None of the workers are healthy!, try again in a few seconds")
 
         # if no servers are available, proxy the request to cold start proxy handler
         if not self.servers and self._cold_start_proxy:
@@ -608,9 +610,6 @@ class AutoScaler(LightningFlow):
             api_name=self._work_cls.__name__,
             cold_start_proxy=cold_start_proxy,
         )
-        for _ in range(min_replicas):
-            work = self.create_work()
-            self.add_work(work)
 
     @property
     def ready(self) -> bool:
@@ -662,10 +661,8 @@ class AutoScaler(LightningFlow):
     def run(self):
         if not self.load_balancer.is_running:
             self.load_balancer.run()
-
         for work in self.workers:
             work.run()
-
         if self.load_balancer.url:
             self.fake_trigger += 1  # Note: change state to keep calling `run`.
             self.autoscale()
@@ -732,6 +729,8 @@ class AutoScaler(LightningFlow):
 
         # scale-out
         if time.time() - self._last_autoscale > self.scale_out_interval:
+            # TODO figuring out number of workers to add only based on num_replicas isn't right because pending works
+            #  are not added to num_replicas
             num_workers_to_add = num_target_workers - self.num_replicas
             for _ in range(num_workers_to_add):
                 logger.info(f"Scaling out from {self.num_replicas} to {self.num_replicas + 1}")
@@ -744,6 +743,8 @@ class AutoScaler(LightningFlow):
 
         # scale-in
         if time.time() - self._last_autoscale > self.scale_in_interval:
+            # TODO figuring out number of workers to remove only based on num_replicas isn't right because pending works
+            #  are not added to num_replicas
             num_workers_to_remove = self.num_replicas - num_target_workers
             for _ in range(num_workers_to_remove):
                 logger.info(f"Scaling in from {self.num_replicas} to {self.num_replicas - 1}")
