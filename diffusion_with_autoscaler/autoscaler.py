@@ -208,14 +208,12 @@ class _LoadBalancer(LightningWork):
                     "accept": "application/json",
                     "Content-Type": "application/json",
                 }
-                print(f"Sending request to {batch[0][0]}")
                 async with session.post(
                         f"{server_url}{self.endpoint}",
                         json=batch_request_data.dict(),
                         timeout=self._timeout_inference_request,
                         headers=headers,
                 ) as response:
-                    print(f"Got response from {batch[0][0]}")
                     # resetting the server status so other requests can be
                     # scheduled on this node
                     if server_url in self._server_status:
@@ -230,7 +228,6 @@ class _LoadBalancer(LightningWork):
                     if len(batch) != len(outputs):
                         raise RuntimeError(f"result has {len(outputs)} items but batch is {len(batch)}")
                     result = {request[0]: r for request, r in zip(batch, outputs)}
-                    print("updating response", batch[0][0])
                     self._responses.update(result)
         except Exception as ex:
             result = {request[0]: ex for request in batch}
@@ -272,7 +269,6 @@ class _LoadBalancer(LightningWork):
                 continue
             if batch and (is_batch_ready or is_batch_timeout):
                 self._server_status[server_url] = False
-                print("consumer sending request", batch[0][0])
                 # find server with capacity
                 asyncio.create_task(self.send_batch(batch, server_url))
                 # resetting the batch array, TODO - not locking the array
@@ -283,7 +279,9 @@ class _LoadBalancer(LightningWork):
         if request_id is None:
             request_id = uuid.uuid4().hex
         if not self.servers and not self._cold_start_proxy:
-            raise HTTPException(500, "None of the workers are healthy!")
+            # sleeping to trigger the scale up
+            await asyncio.sleep(10)
+            raise HTTPException(503, "None of the workers are healthy!, try again in a few seconds")
 
         # if no servers are available, proxy the request to cold start proxy handler
         if not self.servers and self._cold_start_proxy:
@@ -294,12 +292,10 @@ class _LoadBalancer(LightningWork):
             return await self._cold_start_proxy.handle_request(data)
 
         # if we have capacity, process the request
-        print("appended to batch", request_id)
         self._batch.append((request_id, data))
         while True:
             await asyncio.sleep(0.05)
             if request_id in self._responses:
-                print("found response", request_id)
                 result = self._responses[request_id]
                 del self._responses[request_id]
                 _maybe_raise_granular_exception(result)
@@ -433,7 +429,6 @@ class _LoadBalancer(LightningWork):
         deleted = old_server_urls - available_urls
         if deleted:
             logger.info(f"servers deleted: {deleted}")
-        print("updating servers", available_urls)
         self.send_request_to_update_servers(list(available_urls))
 
     def send_request_to_update_servers(self, servers: List[str]):
@@ -615,9 +610,6 @@ class AutoScaler(LightningFlow):
             api_name=self._work_cls.__name__,
             cold_start_proxy=cold_start_proxy,
         )
-        for _ in range(min_replicas):
-            work = self.create_work()
-            self.add_work(work)
 
     @property
     def ready(self) -> bool:
@@ -669,10 +661,8 @@ class AutoScaler(LightningFlow):
     def run(self):
         if not self.load_balancer.is_running:
             self.load_balancer.run()
-
         for work in self.workers:
             work.run()
-
         if self.load_balancer.url:
             self.fake_trigger += 1  # Note: change state to keep calling `run`.
             self.autoscale()
@@ -739,6 +729,8 @@ class AutoScaler(LightningFlow):
 
         # scale-out
         if time.time() - self._last_autoscale > self.scale_out_interval:
+            # TODO figuring out number of workers to add only based on num_replicas isn't right because pending works
+            #  are not added to num_replicas
             num_workers_to_add = num_target_workers - self.num_replicas
             for _ in range(num_workers_to_add):
                 logger.info(f"Scaling out from {self.num_replicas} to {self.num_replicas + 1}")
@@ -751,6 +743,8 @@ class AutoScaler(LightningFlow):
 
         # scale-in
         if time.time() - self._last_autoscale > self.scale_in_interval:
+            # TODO figuring out number of workers to remove only based on num_replicas isn't right because pending works
+            #  are not added to num_replicas
             num_workers_to_remove = self.num_replicas - num_target_workers
             for _ in range(num_workers_to_remove):
                 logger.info(f"Scaling in from {self.num_replicas} to {self.num_replicas - 1}")
