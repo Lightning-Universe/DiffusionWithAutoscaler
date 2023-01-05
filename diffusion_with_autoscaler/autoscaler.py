@@ -198,6 +198,7 @@ class _LoadBalancer(LightningWork):
         return f"http://{self._internal_ip}:{self._port}"
 
     async def send_batch(self, batch: List[Tuple[str, _BatchRequestModel]], server_url: str):
+        t1 = time.time()
         request_data: List[_LoadBalancer._input_type] = [b[1] for b in batch]
         batch_request_data = _BatchRequestModel(inputs=request_data)
 
@@ -208,12 +209,14 @@ class _LoadBalancer(LightningWork):
                     "accept": "application/json",
                     "Content-Type": "application/json",
                 }
+                t2 = time.time()
                 async with session.post(
                         f"{server_url}{self.endpoint}",
                         json=batch_request_data.dict(),
                         timeout=self._timeout_inference_request,
                         headers=headers,
                 ) as response:
+                    t3 = time.time()
                     # resetting the server status so other requests can be
                     # scheduled on this node
                     if server_url in self._server_status:
@@ -223,12 +226,16 @@ class _LoadBalancer(LightningWork):
                     if response.status == 408:
                         raise HTTPException(408, "Request timed out")
                     response.raise_for_status()
+                    t4 = time.time()
                     response = await response.json()
+                    t5 = time.time()
                     outputs = response["outputs"]
                     if len(batch) != len(outputs):
                         raise RuntimeError(f"result has {len(outputs)} items but batch is {len(batch)}")
                     result = {request[0]: r for request, r in zip(batch, outputs)}
+                    t6 = time.time()
                     self._responses.update(result)
+                    print(f"send_batch: {t6-t1:.2f} {t2-t1:.2f} {t3-t2:.2f} {t4-t3:.2f} {t5-t4:.2f} {t6-t5:.2f}")
         except Exception as ex:
             result = {request[0]: ex for request in batch}
             self._responses.update(result)
@@ -276,6 +283,7 @@ class _LoadBalancer(LightningWork):
                 self._last_batch_sent = time.time()
 
     async def process_request(self, data: BaseModel, request_id=None):
+        t1 = time.time()
         if request_id is None:
             request_id = uuid.uuid4().hex
         if not self.servers and not self._cold_start_proxy:
@@ -292,6 +300,7 @@ class _LoadBalancer(LightningWork):
             return await self._cold_start_proxy.handle_request(data)
 
         # if we have capacity, process the request
+        t2 = time.time()
         self._batch.append((request_id, data))
         while True:
             await asyncio.sleep(0.05)
@@ -299,6 +308,8 @@ class _LoadBalancer(LightningWork):
                 result = self._responses[request_id]
                 del self._responses[request_id]
                 _maybe_raise_granular_exception(result)
+                t3 = time.time()
+                print(f"process_request: {t3-t1:.2f} {t2-t1:.2f} {t3-t2:.2f}")
                 return result
 
     def _has_processing_capacity(self):

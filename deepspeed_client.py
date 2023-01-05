@@ -1,16 +1,12 @@
-
 import base64
 import time
 from pathlib import Path
 import requests
-import threading
-
-url = "https://cxhyc-01gp18hc5f8980qt60bcx5h9q6.litng-ai-03.litng.ai/predict"
 
 
 def req_and_write(index):
     start = time.time()
-    response = requests.post('https://zqihw-01gnyzn7w79g5an1074fdv9tnb.litng-ai-03.litng.ai/predict', json={
+    response = requests.post("https://vkrdr-01gp18trs3dcr2ts95h2b3w6vv.litng-ai-03.litng.ai/predict", json={
         "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
     })
     end = time.time()
@@ -26,11 +22,4 @@ def req_and_write(index):
         print("index {} success in {}".format(index, end - start))
 
 
-i = 0
-while True:
-    print("")
-    for _ in range(1):
-        t = threading.Thread(target=req_and_write, args=(i,))
-        t.start()
-        i += 1
-    time.sleep(10)
+req_and_write(0)
