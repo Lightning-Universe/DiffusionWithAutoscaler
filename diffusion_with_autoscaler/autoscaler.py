@@ -250,7 +250,6 @@ class _LoadBalancer(LightningWork):
         Two instances of this function should not be running with shared `_state_server` as that would create race
         conditions
         """
-        print("Consumer started ======================")
         while True:
             await asyncio.sleep(0.05)
             batch = self._batch[: self.max_batch_size]
@@ -271,6 +270,7 @@ class _LoadBalancer(LightningWork):
             if batch and (is_batch_ready or is_batch_timeout):
                 self._server_status[server_url] = False
                 # find server with capacity
+                print(f"{len(batch)}")
                 asyncio.create_task(self.send_batch(batch, server_url))
                 # resetting the batch array, TODO - not locking the array
                 self._batch = self._batch[len(batch) :]
