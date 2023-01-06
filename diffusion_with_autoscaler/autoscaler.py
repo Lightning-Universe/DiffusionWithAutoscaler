@@ -198,7 +198,6 @@ class _LoadBalancer(LightningWork):
         return f"http://{self._internal_ip}:{self._port}"
 
     async def send_batch(self, batch: List[Tuple[str, _BatchRequestModel]], server_url: str):
-        t1 = time.time()
         request_data: List[_LoadBalancer._input_type] = [b[1] for b in batch]
         batch_request_data = _BatchRequestModel(inputs=request_data)
 
@@ -216,31 +215,25 @@ class _LoadBalancer(LightningWork):
                         timeout=self._timeout_inference_request,
                         headers=headers,
                 ) as response:
-                    t3 = time.time()
                     # resetting the server status so other requests can be
                     # scheduled on this node
-                    if server_url in self._server_status:
-                        # TODO - if the server returns an error, track that so
-                        #  we don't send more requests to it
-                        self._server_status[server_url] = True
                     if response.status == 408:
                         raise HTTPException(408, "Request timed out")
                     response.raise_for_status()
-                    t4 = time.time()
                     response = await response.json()
-                    t5 = time.time()
                     outputs = response["outputs"]
                     if len(batch) != len(outputs):
                         raise RuntimeError(f"result has {len(outputs)} items but batch is {len(batch)}")
                     result = {request[0]: r for request, r in zip(batch, outputs)}
-                    t6 = time.time()
                     self._responses.update(result)
-                    print(f"send_batch: {t6-t1:.2f} {t2-t1:.2f} {t3-t2:.2f} {t4-t3:.2f} {t5-t4:.2f} {t6-t5:.2f}")
         except Exception as ex:
             result = {request[0]: ex for request in batch}
             self._responses.update(result)
         finally:
-            self._server_status[server_url] = True
+            if server_url in self._server_status:
+                # TODO - if the server returns an error, track that so
+                #  we don't send more requests to it
+                self._server_status[server_url] = True
 
     def _find_free_server(self) -> Optional[str]:
         existing = set(self._server_status.keys())
@@ -257,6 +250,7 @@ class _LoadBalancer(LightningWork):
         Two instances of this function should not be running with shared `_state_server` as that would create race
         conditions
         """
+        print("Consumer started ======================")
         while True:
             await asyncio.sleep(0.05)
             batch = self._batch[: self.max_batch_size]
@@ -309,7 +303,6 @@ class _LoadBalancer(LightningWork):
                 del self._responses[request_id]
                 _maybe_raise_granular_exception(result)
                 t3 = time.time()
-                print(f"process_request: {t3-t1:.2f} {t2-t1:.2f} {t3-t2:.2f}")
                 return result
 
     def _has_processing_capacity(self):
