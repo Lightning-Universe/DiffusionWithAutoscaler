@@ -1,8 +1,9 @@
 # !pip install deepspeed==0.7.5 deepspeed-mii==0.0.3 diffusers==0.7.1 transformers==4.24.0 triton==2.0.0.dev20221005
-# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git'
+# !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
+# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git@debugging-deepspeed'
 
 import lightning as L
-import os, base64, io, torch, time, diffusers, deepspeed
+import os, base64, io, torch, diffusers, deepspeed
 from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
 
 
@@ -16,7 +17,9 @@ class DiffusionServer(L.app.components.PythonServer):
         )
 
     def setup(self):
-        hf_auth_key = "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"
+        hf_auth_key = os.getenv("HF_AUTH_KEY")
+        if not hf_auth_key:
+            raise ValueError("HF_AUTH_KEY is not set")
         pipe = diffusers.StableDiffusionPipeline.from_pretrained(
             "CompVis/stable-diffusion-v1-4",
             use_auth_token=hf_auth_key,
@@ -25,18 +28,15 @@ class DiffusionServer(L.app.components.PythonServer):
         self._model = deepspeed.init_inference(pipe.to("cuda"), dtype=torch.float16)
 
     def predict(self, requests):
-        t1 = time.time()
-        text = requests.inputs[0].text
-        t2 = time.time()
-        image = self._model(text, num_inference_steps=30).images[0]
-        t3 = time.time()
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        image_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-        t4 = time.time()
-        print(f"t1: {t2-t1}, t2: {t3-t2}, t3: {t4-t3}")
-        print(f"total: {t4-t1}")
-        return BatchImage(outputs=[{"image": image_str}])
+        texts = [request.text for request in requests.inputs]
+        resp = self._model(texts, num_inference_steps=30)
+        results = []
+        for image in resp[0]:
+            buffer = io.BytesIO()
+            image.save(buffer, format="PNG")
+            image_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            results.append(image_str)
+        return BatchImage(outputs=[{"image": image_str} for image_str in results])
 
 
 component = AutoScaler(
@@ -49,8 +49,8 @@ component = AutoScaler(
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=600,
-    max_batch_size=1,
-    timeout_batching=0.1,
+    max_batch_size=6,
+    timeout_batching=0.3,
     input_type=Text,
     output_type=Image
 )
@@ -79,20 +79,32 @@ pipe = diffusers.StableDiffusionPipeline.from_pretrained(
 
 
 s = time.time()
-image = pipe("real life portrait of a person looking away from camera", num_inference_steps=30).images[0]
+text = "real life portrait of a person looking away from camera"
+images = pipe([text] * 4, num_inference_steps=30)
 print(time.time() - s)
-image.save("image.png")
+images[0][0].save("image0.png")
+images[0][1].save("image1.png")
+images[0][2].save("image1.png")
+images[0][3].save("image1.png")
 
 
 
 # deep speed
 inf_config = {"dtype": "fp16"}
-engine = deepspeed.init_inference(pipe, config=inf_config)
+engine = deepspeed.init_inference(pipe, dtype=torch.float16)
 
 s = time.time()
-image = engine("real life portrait of a person looking away from camera", num_inference_steps=30).images[0]
+text = "real life portrait of a person looking away from camera"
+images = engine([text] * 8, num_inference_steps=30)
 print(time.time() - s)
-image.save("image.png")
+images[0][0].save("image0.png")
+images[0][1].save("image1.png")
+images[0][2].save("image2.png")
+images[0][3].save("image3.png")
+images[0][4].save("image4.png")
+images[0][5].save("image5.png")
+images[0][6].save("image6.png")
+images[0][7].save("image7.png")
 
 import mii
 
