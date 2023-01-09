@@ -303,7 +303,7 @@ class _LoadBalancer(LightningWork):
                 result = self._responses[request_id]
                 del self._responses[request_id]
                 start_time = self._inference_times.pop(request_id)
-                print(f"Processed {request_id} in {start_time}")
+                print(f"Processed {request_id} in {time.time() - start_time}")
                 _maybe_raise_granular_exception(result)
                 return result
 
