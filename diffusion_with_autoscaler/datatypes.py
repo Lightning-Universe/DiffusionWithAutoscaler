@@ -52,7 +52,7 @@ class Text(BaseModel):
 
     @staticmethod
     def get_sample_data() -> Dict[Any, Any]:
-        return {"text": "A portrait of a person looking away from the camera"}
+        return {"text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"}
 
     @staticmethod
     def request_code_sample(url: str) -> str:
@@ -64,13 +64,13 @@ import requests
 response = requests.post('"""
             + url
             + """', json={
-"text": "A portrait of a person looking away from the camera"
+"text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
 })
 # If you are using basic authentication for your app, you should add your credentials to the request:
 # response = requests.post('"""
             + url
             + """', json={
-# "text": "A portrait of a person looking away from the camera"
+# "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
 # }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
 """
         )
@@ -89,13 +89,13 @@ import requests
 response = requests.post('"""
                 + url
                 + """', json={
-"inputs": [{"text": "A portrait of a person looking away from the camera"}]
+"inputs": [{"text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"}]
 })
 # If you are using basic authentication for your app, you should add your credentials to the request:
 # response = requests.post('"""
                 + url
                 + """', json={
-# "inputs": [{"text": "A portrait of a person looking away from the camera"}],
+# "inputs": [{"text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"}],
 # }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
 """
         )

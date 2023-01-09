@@ -5,8 +5,8 @@ import requests
 
 for i in range(100):
     start = time.time()
-    response = requests.post('https://vsjly-01gmqtjwnyy1sd1qgkv545btyp.litng-ai-03.litng.ai/predict', json={
-        "text": "A portrait of a person looking away from the camera"
+    response = requests.post('https://qesby-01gpbz4kg0khbm6ym1af6mqm3e.litng-ai-03.litng.ai/predict', json={
+        "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
     })
 
     img = response.json()["image"]

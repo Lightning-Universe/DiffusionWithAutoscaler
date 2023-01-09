@@ -1,4 +1,4 @@
-# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
+# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@add_deepspeed'
 # !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git'
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
@@ -43,7 +43,7 @@ class DiffusionServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     DiffusionServer,  # The component to scale
-    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
+    cloud_compute=L.CloudCompute("gpu", disk_size=80),
 
     # autoscaler args
     min_replicas=1,
