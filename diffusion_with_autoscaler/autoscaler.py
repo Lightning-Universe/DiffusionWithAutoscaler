@@ -45,7 +45,6 @@ class RequestProcessor:
         self.queue = multiprocessing.Queue()
         self.active_server_queue = multiprocessing.Queue()
         self._batch = []
-        self._inference_times = {}
         self._max_batch_size = max_batch_size
         self._timeout_batching = timeout_batching
 
@@ -199,9 +198,6 @@ class _LoadBalancer(LightningWork):
         return f"http://{self._internal_ip}:{self._port}"
 
     async def send_batch(self, batch: List[Tuple[str, _BatchRequestModel]], server_url: str):
-        for data in batch:
-            self._inference_times[data[0]] = time.time()
-
         request_data: List[_LoadBalancer._input_type] = [b[1] for b in batch]
         batch_request_data = _BatchRequestModel(inputs=request_data)
 
@@ -302,8 +298,6 @@ class _LoadBalancer(LightningWork):
             if request_id in self._responses:
                 result = self._responses[request_id]
                 del self._responses[request_id]
-                start_time = self._inference_times.pop(request_id)
-                print(f"Processed {request_id} in {time.time() - start_time}")
                 _maybe_raise_granular_exception(result)
                 return result
 

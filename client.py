@@ -5,7 +5,7 @@ import requests
 
 for i in range(100):
     start = time.time()
-    response = requests.post('https://qesby-01gpbz4kg0khbm6ym1af6mqm3e.litng-ai-03.litng.ai/predict', json={
+    response = requests.post('https://buaac-01gpc0bjpwqxkk143xmr73dcs2.litng-ai-03.litng.ai/predict', json={
         "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
     })
 

@@ -1,8 +1,8 @@
-import os, time
+import os
 
 from locust import FastHttpUser, task
 
-TEXT = "A cat running away from a mouse"
+TEXT = "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
 SERVER_URL = os.getenv("SERVER_URL", None)
 
 
