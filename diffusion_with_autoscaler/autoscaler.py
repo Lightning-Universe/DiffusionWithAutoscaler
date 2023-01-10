@@ -270,14 +270,12 @@ class _LoadBalancer(LightningWork):
             if batch and (is_batch_ready or is_batch_timeout):
                 self._server_status[server_url] = False
                 # find server with capacity
-                print(f"{len(batch)}")
                 asyncio.create_task(self.send_batch(batch, server_url))
                 # resetting the batch array, TODO - not locking the array
                 self._batch = self._batch[len(batch) :]
                 self._last_batch_sent = time.time()
 
     async def process_request(self, data: BaseModel, request_id=None):
-        t1 = time.time()
         if request_id is None:
             request_id = uuid.uuid4().hex
         if not self.servers and not self._cold_start_proxy:
@@ -294,7 +292,6 @@ class _LoadBalancer(LightningWork):
             return await self._cold_start_proxy.handle_request(data)
 
         # if we have capacity, process the request
-        t2 = time.time()
         self._batch.append((request_id, data))
         while True:
             await asyncio.sleep(0.05)
@@ -302,7 +299,6 @@ class _LoadBalancer(LightningWork):
                 result = self._responses[request_id]
                 del self._responses[request_id]
                 _maybe_raise_granular_exception(result)
-                t3 = time.time()
                 return result
 
     def _has_processing_capacity(self):
@@ -370,7 +366,7 @@ class _LoadBalancer(LightningWork):
                 updated_servers.add(server)
                 if server not in existing_servers:
                     self._server_status[server] = True
-                    logger.info(f"Registering server {server}", self._server_status)
+                    print(f"total servers {len(self._server_status)}")
             for existing in existing_servers:
                 if existing not in updated_servers:
                     logger.info(f"De-Registering server {existing}", self._server_status)
