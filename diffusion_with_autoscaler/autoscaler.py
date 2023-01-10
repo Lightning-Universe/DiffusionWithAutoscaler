@@ -366,7 +366,7 @@ class _LoadBalancer(LightningWork):
                 updated_servers.add(server)
                 if server not in existing_servers:
                     self._server_status[server] = True
-                    print(f"Registering server {server}", self._server_status)
+                    print(f"total servers {len(self._server_status)}")
             for existing in existing_servers:
                 if existing not in updated_servers:
                     logger.info(f"De-Registering server {existing}", self._server_status)
