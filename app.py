@@ -27,7 +27,7 @@ class DiffusionServer(L.app.components.PythonServer):
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
         )
-        self._model.steps = 30
+        L.seed_everything(42)
 
     def predict(self, requests):
         texts = [request.text for request in requests.inputs]
