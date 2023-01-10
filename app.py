@@ -1,5 +1,5 @@
-# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
-# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git'
+# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@add_deepspeed'
+# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git@debugging-deepspeed'
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
@@ -47,15 +47,14 @@ component = AutoScaler(
 
     # autoscaler args
     min_replicas=1,
-    max_replicas=3,
+    max_replicas=1,
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=600,
-    max_batch_size=4,
-    timeout_batching=2,
+    max_batch_size=6,
+    timeout_batching=0.3,
     input_type=Text,
-    output_type=Image,
-    cold_start_proxy=CustomColdStartProxy(proxy_url=PROXY_URL)
+    output_type=Image
 )
 
 app = L.LightningApp(component)
