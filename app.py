@@ -1,4 +1,4 @@
-# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
+# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@add_deepspeed'
 # !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git'
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
@@ -27,7 +27,7 @@ class DiffusionServer(L.app.components.PythonServer):
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
         )
-        self._model.steps = 30
+        L.seed_everything(42)
 
     def predict(self, requests):
         texts = [request.text for request in requests.inputs]
