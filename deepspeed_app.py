@@ -1,11 +1,10 @@
-# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
+# !pip install deepspeed==0.7.5 deepspeed-mii==0.0.3 diffusers==0.7.1 transformers==4.24.0 triton==2.0.0.dev20221005
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
-# !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
-import lightning as L
-import os, base64, io, ldm, torch
-from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, CustomColdStartProxy
+# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git@debugging-deepspeed'
 
-PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
+import lightning as L
+import os, base64, io, torch, diffusers, deepspeed
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
 
 
 class DiffusionServer(L.app.components.PythonServer):
@@ -18,21 +17,21 @@ class DiffusionServer(L.app.components.PythonServer):
         )
 
     def setup(self):
-        cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
-        os.system(cmd)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._model = ldm.lightning.LightningStableDiffusion(
-            config_path="v1-inference.yaml",
-            checkpoint_path="v1-5-pruned-emaonly.ckpt",
-            device=device,
-            steps=30,
-        )
+        hf_auth_key = os.getenv("HF_AUTH_KEY")
+        if not hf_auth_key:
+            raise ValueError("HF_AUTH_KEY is not set")
+        pipe = diffusers.StableDiffusionPipeline.from_pretrained(
+            "CompVis/stable-diffusion-v1-4",
+            use_auth_token=hf_auth_key,
+            torch_dtype=torch.float16,
+            revision="fp16")
+        self._model = deepspeed.init_inference(pipe.to("cuda"), dtype=torch.float16)
 
     def predict(self, requests):
         texts = [request.text for request in requests.inputs]
-        images = self._model.predict_step(prompts=texts, batch_idx=0)
+        resp = self._model(texts, num_inference_steps=30)
         results = []
-        for image in images:
+        for image in resp[0]:
             buffer = io.BytesIO()
             image.save(buffer, format="PNG")
             image_str = base64.b64encode(buffer.getvalue()).decode("utf-8")

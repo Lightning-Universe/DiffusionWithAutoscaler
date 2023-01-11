@@ -208,6 +208,7 @@ class _LoadBalancer(LightningWork):
                     "accept": "application/json",
                     "Content-Type": "application/json",
                 }
+                t2 = time.time()
                 async with session.post(
                         f"{server_url}{self.endpoint}",
                         json=batch_request_data.dict(),
@@ -216,10 +217,6 @@ class _LoadBalancer(LightningWork):
                 ) as response:
                     # resetting the server status so other requests can be
                     # scheduled on this node
-                    if server_url in self._server_status:
-                        # TODO - if the server returns an error, track that so
-                        #  we don't send more requests to it
-                        self._server_status[server_url] = True
                     if response.status == 408:
                         raise HTTPException(408, "Request timed out")
                     response.raise_for_status()
@@ -233,7 +230,10 @@ class _LoadBalancer(LightningWork):
             result = {request[0]: ex for request in batch}
             self._responses.update(result)
         finally:
-            self._server_status[server_url] = True
+            if server_url in self._server_status:
+                # TODO - if the server returns an error, track that so
+                #  we don't send more requests to it
+                self._server_status[server_url] = True
 
     def _find_free_server(self) -> Optional[str]:
         existing = set(self._server_status.keys())
@@ -366,7 +366,7 @@ class _LoadBalancer(LightningWork):
                 updated_servers.add(server)
                 if server not in existing_servers:
                     self._server_status[server] = True
-                    logger.info(f"Registering server {server}", self._server_status)
+                    print(f"total servers {len(self._server_status)}")
             for existing in existing_servers:
                 if existing not in updated_servers:
                     logger.info(f"De-Registering server {existing}", self._server_status)
