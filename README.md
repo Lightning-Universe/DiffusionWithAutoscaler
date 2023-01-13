@@ -84,3 +84,45 @@ lightning run app app.py --setup
 ```bash
 lightning run app app.py --setup --cloud
 ```
+
+
+### Benchmarking
+
+When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffusion) with DDIM 30 steps, you can expect the followings numbers on GPU A10 (gpu-rxt).
+
+| Max Batch Size | Number of users (locust)  | Average (ms)  | Min (ms)  | Max (ms)  |
+|---|---|---|---|---|
+| 1  | 1  | 2185  | 2124  | 5030  |
+| 2  | 2  | 4206  | 2139  | 6418  |
+| 4  | 4  | 7524  | 2138  | 10900  |
+| 6  | 6  | 10929  | 2135  | 18494  |
+
+
+To reproduce those numbers, you can do the following:
+
+1. Run the app in the cloud
+
+```bash
+lightning run app app.py --setup --cloud
+```
+
+2. Wait for the app to be ready for inference in the cloud
+
+
+3. Launch the load testing app (using locust)
+
+```bash
+lightning run app loadtest/app.py --cloud --env SERVER_URL={URL_SERVER}
+```
+
+Example:
+
+```bash
+lightning run app loadtest/app.py --cloud --env SERVER_URL=https://gcrjp-01gpgyn0kzngryjcap9vpn8aht.litng-ai-03.litng.ai
+```
+
+4. From the load testing UI, specify a number of users to be either 1, 2, 4, 6 and launch the load testing
+
+5. The Stable Diffusion model gets faster with time. At convergence, you should observe the same numbers as reported in the table above. Otherwise, open an issue. 
+
+Note: Cuda Graph isn't supported yet, but extra speed up can be expected soon.
