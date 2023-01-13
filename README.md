@@ -34,7 +34,7 @@ class DiffusionServer(L.app.components.PythonServer):
             config_path="v1-inference.yaml",
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
-            fp16=True,
+            fp16=True, # Supported on GPU, skipped otherwise.
             use_deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             steps=30,        
         )
