@@ -35,7 +35,7 @@ class DiffusionServer(L.app.components.PythonServer):
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
             fp16=True,
-            use_deepspeed=True,
+            use_deepspeed=True, # Skipped if the accelerator isn't supported.
             steps=30,        
         )
 
