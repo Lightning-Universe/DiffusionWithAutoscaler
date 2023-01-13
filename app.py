@@ -3,7 +3,7 @@
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
 import os, base64, io, ldm, torch
-from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, CustomColdStartProxy
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
@@ -25,7 +25,9 @@ class DiffusionServer(L.app.components.PythonServer):
             config_path="v1-inference.yaml",
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
-            steps=30,
+            fp16=True, # Supported on GPU, skipped otherwise.
+            use_deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            steps=30,         
         )
 
     def predict(self, requests):

@@ -34,8 +34,10 @@ class DiffusionServer(L.app.components.PythonServer):
             config_path="v1-inference.yaml",
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
+            fp16=True, # Supported on GPU, skipped otherwise.
+            use_deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            steps=30,        
         )
-        self._model.steps = 30
 
     def predict(self, requests):
         texts = [request.text for request in requests.inputs]
