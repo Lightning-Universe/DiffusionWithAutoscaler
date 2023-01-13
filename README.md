@@ -61,11 +61,11 @@ component = AutoScaler(
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=600,
-    max_batch_size=4,
-    timeout_batching=2,
+    max_batch_size=6,
+    timeout_batching=0.3,
     input_type=Text,
     output_type=Image,
-    cold_start_proxy=CustomColdStartProxy(proxy_url=PROXY_URL)
+    cold_start_proxy=CustomColdStartProxy(proxy_url=PROXY_URL),
 )
 
 app = L.LightningApp(component)
