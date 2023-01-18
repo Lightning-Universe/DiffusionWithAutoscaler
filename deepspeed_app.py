@@ -1,6 +1,6 @@
 # !pip install deepspeed==0.7.5 deepspeed-mii==0.0.3 diffusers==0.7.1 transformers==4.24.0 triton==2.0.0.dev20221005
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
-# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git@debugging-deepspeed'
+# !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git@feat/spot-autoscaler'
 
 import lightning as L
 import os, base64, io, torch, diffusers, deepspeed
@@ -43,7 +43,7 @@ component = AutoScaler(
     DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80, preemptible=True),
 
-    strategy=PreemptibleRollout(interval=60),
+    strategy=PreemptibleRollout(interval=60 * 15), # Renew the instance every 15 minutes. 
     # autoscaler args
     min_replicas=1,
     max_replicas=1,

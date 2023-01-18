@@ -9,6 +9,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import requests
 from requests import Response, Session
+from lightning.app.structures import Dict
 from lightning import LightningWork
 from lightning.app.structures import List
 from lightning.app.utilities.exceptions import CacheMissException
@@ -41,8 +42,9 @@ def _configure_session() -> Session:
     return http
 
 
-class Strategy(abc.ABC):
+class Strategy(abc.ABC, L.LightningFlow):
     def __init__(self):
+        super().__init__()
         self._session = None
 
     def select_url(self, request, local_router_metadata):
@@ -66,7 +68,7 @@ class Strategy(abc.ABC):
             return getattr(self._session, method)(selected_url + "/" + full_path)
 
     @abc.abstractmethod
-    def run(self, serve_works: List[LightningWork], create_work: Callable, add_work: Callable, remove_work: Callable) -> Any:
+    def run(self, serve_works: List[LightningWork], create_work: Callable, register_work: Callable, replace_work: Callable) -> Any:
         pass
 
     def on_after_run(self, serve_works: List[LightningWork], res):
@@ -86,15 +88,14 @@ class PreemptibleRollout(Strategy):
         super().__init__()
         self.interval = interval
         self.work_start_tracker = {}
-        self.old_works_to_id = {}
-        self.new_to_old_works = {}
+        self.old_works = []
+        self.new_works = []
 
     def run(
         self,
         serve_works: List[LightningWork],
         create_work: Callable,
-        add_work: Callable,
-        remove_work: Callable
+        replace_work: Callable,
     ) -> None:
         # The preemtible strategy applies only on spot servers.
         serve_works = [w for w in serve_works if w.cloud_compute.preemptible]
@@ -105,19 +106,21 @@ class PreemptibleRollout(Strategy):
                 self.work_start_tracker[work] = time.time()
 
         for work, start_time in self.work_start_tracker.items():
-            if self.interval < (time.time() - start_time) and work not in self.old_works_to_id:
+            if self.interval < (time.time() - start_time) and work not in self.old_works:
                 new_work = create_work()
-                new_work_id, num_replicas = add_work(new_work)
-                print(f"Starting replacement for {work.name}: {new_work_id}.")
-                self.old_works_to_id[work] = num_replicas - 1
-                self.new_to_old_works[new_work] = work
+                self.old_works.append(work)
+                self.new_works.append(new_work)
 
-        new_works = list(self.new_to_old_works)
-        for new_work in new_works:
+        items = zip(self.old_works, self.new_works)
+        for old_work, new_work in items:
             if new_work.url:
-                old_work = self.new_to_old_works[new_work]
-                del self.work_start_tracker[old_work]
-                remove_work(self.old_works_to_id[old_work])
+                value = replace_work(old_work, new_work)
+                if value is None:
+                   wait for the next time
+                elif value:
+                    Worked
+                else:
+                    It didn't work
                 print(f"Removed {old_work.name}.")
 
     def on_after_run(self, serve_works: List[LightningWork], res):
