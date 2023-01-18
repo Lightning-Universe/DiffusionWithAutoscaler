@@ -6,6 +6,7 @@ import time
 import uuid
 from itertools import cycle
 from typing import Any, Dict, List, Tuple, Type, Optional, Union
+from deepdiff import DeepHash
 
 import requests
 import uvicorn
@@ -23,6 +24,7 @@ from lightning.app.utilities.packaging.cloud_compute import CloudCompute
 from lightning.app.utilities.cloud import is_running_in_cloud
 
 from diffusion_with_autoscaler.cold_start_proxy import ColdStartProxy
+from diffusion_with_autoscaler.strategies import Strategy, PreemptibleRollout
 
 if _is_aiohttp_available():
     import aiohttp
@@ -572,6 +574,7 @@ class AutoScaler(LightningFlow):
         input_type: Type[BaseModel] = Dict,
         output_type: Type[BaseModel] = Dict,
         cold_start_proxy: Union[ColdStartProxy, str, None] = None,
+        strategy: Optional[Strategy] = None,
         *work_args: Any,
         **work_kwargs: Any,
     ) -> None:
@@ -585,6 +588,9 @@ class AutoScaler(LightningFlow):
 
         self._input_type = input_type
         self._output_type = output_type
+        self._strategy = strategy
+        self._strategy_has_run = False
+        self._last_res_hash = None
         self.scale_out_interval = scale_out_interval
         self.scale_in_interval = scale_in_interval
         self.max_batch_size = max_batch_size
@@ -660,9 +666,23 @@ class AutoScaler(LightningFlow):
     def run(self):
         if not self.load_balancer.is_running:
             self.load_balancer.run()
+
         for work in self.workers:
             work.run()
+
         if self.load_balancer.url:
+            # step 1: [[a0], [b0], [c0]]              # a list of groups of servers???
+            # step 2: [[a0, a1], [b0, b1], [c0, c1]]  # spin up new ones
+            # step 3: [[a1], [b1], [c1]]              # remove old ones once new ones get ready
+            res = self._strategy.run(self.workers)
+            res_hash = DeepHash(res)[res]
+
+            if res_hash == self.last_res_hash:
+                # if nothing changes, do nothing
+                pass
+            else:
+                self._strategy.update_servers(self.workers, res)
+
             self.fake_trigger += 1  # Note: change state to keep calling `run`.
             self.autoscale()
 
