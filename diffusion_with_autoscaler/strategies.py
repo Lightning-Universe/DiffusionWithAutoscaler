@@ -1,6 +1,6 @@
 import abc
-from typing import Any, Optional
-
+from typing import Any, Optional, Callable
+import time
 import numpy as np
 from fastapi import Request
 from lightning import LightningWork
@@ -66,7 +66,7 @@ class Strategy(abc.ABC):
             return getattr(self._session, method)(selected_url + "/" + full_path)
 
     @abc.abstractmethod
-    def run(self, serve_works: List[LightningWork]) -> Any:
+    def run(self, serve_works: List[LightningWork], add_work: Callable) -> Any:
         pass
 
     def on_after_run(self, serve_works: List[LightningWork], res):
@@ -84,19 +84,26 @@ class PreemptibleRollout(Strategy):
         self.timeout = timeout
         self.last_run_time = None
         self.has_run = False
+        self.work_start_tracker = {}
+        self.replacement_works = {}
 
-    def run(self, serve_works: List[LightningWork]):
-        """returning None doesn't change anything"""
-        # if only one server
-        if len(serve_works) == 1:
-            return [{100: [get_url(serve_works[-1])]}]
+    def run(self, serve_works: List[LightningWork], add_work: Callable) -> None:
+        replacement_works = list(self.replacement_works)
+        for new_work in replacement_works:
+            if new_work.url:
+                previous_work = self.replacement_works.pop()
+                previous_work.stop()
 
-        # if new server is ready
-        if serve_works[-1].alive():
-            return [{100: [get_url(serve_works[-1])]}]
-        return [{100: [get_url(serve_works[-2])]}]
+        for work in serve_works:
+            if work.url and work.name not in self.work_start_tracker:
+                self.work_start_tracker[work] = time.time()
+
+        for work, start_time in self.work_start_tracker.items():
+            if self.interval < (time.time() - start_time):
+                new_work = work.clone()
+                add_work(new_work)
+                self.replacement_works[new_work] = work
+
 
     def on_after_run(self, serve_works: List[LightningWork], res):
-        for serve_work in serve_works[:-1]:
-            serve_work.stop()
-            print(f"Killing the server {serve_work.name}")
+        pass

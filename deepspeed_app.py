@@ -4,7 +4,7 @@
 
 import lightning as L
 import os, base64, io, torch, diffusers, deepspeed
-from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, PreemptibleRollout
 
 
 class DiffusionServer(L.app.components.PythonServer):
@@ -41,8 +41,9 @@ class DiffusionServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     DiffusionServer,  # The component to scale
-    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
+    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80, preemptible=True),
 
+    strategy=PreemptibleRollout(interval=60),
     # autoscaler args
     min_replicas=1,
     max_replicas=1,

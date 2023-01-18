@@ -670,21 +670,12 @@ class AutoScaler(LightningFlow):
         for work in self.workers:
             work.run()
 
-        if self.load_balancer.url:
-            # step 1: [[a0], [b0], [c0]]              # a list of groups of servers???
-            # step 2: [[a0, a1], [b0, b1], [c0, c1]]  # spin up new ones
-            # step 3: [[a1], [b1], [c1]]              # remove old ones once new ones get ready
-            res = self._strategy.run(self.workers)
-            res_hash = DeepHash(res)[res]
+        if not self.load_balancer.url:
+            return
 
-            if res_hash == self.last_res_hash:
-                # if nothing changes, do nothing
-                pass
-            else:
-                self._strategy.update_servers(self.workers, res)
-
-            self.fake_trigger += 1  # Note: change state to keep calling `run`.
-            self.autoscale()
+        self._strategy.run(self, self.workers)
+        self.fake_trigger += 1  # Note: change state to keep calling `run`.
+        self.autoscale()
 
     def scale(self, replicas: int, metrics: dict) -> int:
         """The default scaling logic that users can override.
