@@ -9,9 +9,21 @@ import threading
 
 def req_and_write(index):
     start = time.time()
-    response = requests.post('https://zqihw-01gnyzn7w79g5an1074fdv9tnb.litng-ai-03.litng.ai/predict', json={
-        "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
-    })
+    response = requests.post(
+        'http://127.0.0.1:5050/predict', 
+        # json={
+        #     "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
+        # },
+        json={
+            "inputs": [{
+                "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
+            }]
+        },
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+        }
+    )
     end = time.time()
     try:
         img = response.json()["image"]
@@ -33,3 +45,4 @@ while True:
         t.start()
         i += 1
     time.sleep(10)
+    break

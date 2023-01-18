@@ -5,7 +5,7 @@ import queue
 import time
 import uuid
 from itertools import cycle
-from typing import Any, Dict, List, Tuple, Type, Optional, Union
+from typing import Any, Dict, List, Tuple, Type, Optional, Union, Literal
 
 import requests
 import uvicorn
@@ -159,6 +159,7 @@ class _LoadBalancer(LightningWork):
             timeout_inference_request: int = 60,
             api_name: Optional[str] = "API",  # used for displaying the name in the UI
             cold_start_proxy: Union[ColdStartProxy, str, None] = None,
+            batching: Literal["continuous", "grouped"] = "grouped",
             **kwargs: Any,
     ) -> None:
         super().__init__(cloud_compute=CloudCompute("default"), **kwargs)
@@ -169,6 +170,7 @@ class _LoadBalancer(LightningWork):
         self.servers = []
         self.max_batch_size = max_batch_size
         self.timeout_batching = timeout_batching
+        self.batching = batching
         self._iter = None
         self._batch = []
         self._responses = {}  # {request_id: response}
@@ -198,8 +200,11 @@ class _LoadBalancer(LightningWork):
         return f"http://{self._internal_ip}:{self._port}"
 
     async def send_batch(self, batch: List[Tuple[str, _BatchRequestModel]], server_url: str):
-        request_data: List[_LoadBalancer._input_type] = [b[1] for b in batch]
-        batch_request_data = _BatchRequestModel(inputs=request_data)
+        if isinstance(batch, list):
+            request_data: List[_LoadBalancer._input_type] = [b[1] for b in batch]
+            batch_request_data = _BatchRequestModel(inputs=request_data)
+        else:
+            batch_request_data = _BatchRequestModel(inputs=[batch])
 
         try:
             self._server_status[server_url] = False
@@ -208,7 +213,6 @@ class _LoadBalancer(LightningWork):
                     "accept": "application/json",
                     "Content-Type": "application/json",
                 }
-                t2 = time.time()
                 async with session.post(
                         f"{server_url}{self.endpoint}",
                         json=batch_request_data.dict(),
@@ -301,6 +305,25 @@ class _LoadBalancer(LightningWork):
                 _maybe_raise_granular_exception(result)
                 return result
 
+    async def continuous_process_request(self, data: BaseModel, request_id=None):
+        if request_id is None:
+            request_id = uuid.uuid4().hex
+        if not self.servers and not self._cold_start_proxy:
+            # sleeping to trigger the scale up
+            await asyncio.sleep(10)
+            raise HTTPException(503, "None of the workers are healthy!, try again in a few seconds")
+
+        # if no servers are available, proxy the request to cold start proxy handler
+        if not self.servers and self._cold_start_proxy:
+            return await self._cold_start_proxy.handle_request(data)
+
+        # if out of capacity, proxy the request to cold start proxy handler
+        if not self._has_processing_capacity() and self._cold_start_proxy:
+            return await self._cold_start_proxy.handle_request(data)
+
+        server_url = self._find_free_server()
+        asyncio.create_task(self.send_batch(data, server_url))
+
     def _has_processing_capacity(self):
         """This function checks if we have processing capacity for one more request or not.
 
@@ -339,7 +362,8 @@ class _LoadBalancer(LightningWork):
 
         @fastapi_app.on_event("startup")
         async def startup_event():
-            fastapi_app.SEND_TASK = asyncio.create_task(self.consumer())
+            if self.batching == "grouped":
+                fastapi_app.SEND_TASK = asyncio.create_task(self.consumer())
 
         @fastapi_app.on_event("shutdown")
         def shutdown_event():
@@ -374,7 +398,10 @@ class _LoadBalancer(LightningWork):
 
         @fastapi_app.post(self.endpoint, response_model=self._output_type)
         async def balance_api(inputs: input_type):
-            return await self.process_request(inputs)
+            if self.batching == "grouped":
+                return await self.process_request(inputs)
+            else:
+                return await self.continuous_process_request(inputs)
 
         endpoint_info_page = self._get_endpoint_info_page()
         if endpoint_info_page:
@@ -573,6 +600,7 @@ class AutoScaler(LightningFlow):
             input_type: Type[BaseModel] = Dict,
             output_type: Type[BaseModel] = Dict,
             cold_start_proxy: Union[ColdStartProxy, str, None] = None,
+            batching: Literal["continuous", "grouped"] = "grouped",
             *work_args: Any,
             **work_kwargs: Any,
     ) -> None:
@@ -609,6 +637,7 @@ class AutoScaler(LightningFlow):
             parallel=True,
             api_name=self._work_cls.__name__,
             cold_start_proxy=cold_start_proxy,
+            batching=batching,
         )
 
     @property
