@@ -646,7 +646,7 @@ class AutoScaler(LightningFlow):
         setattr(self, work_attribute, work)
         self._work_registry[self.num_replicas] = work_attribute
         self.num_replicas += 1
-        return work_attribute
+        return work_attribute, self.num_replicas
 
     def remove_work(self, index: int) -> str:
         """Removes the ``index`` th LightningWork instance."""
@@ -654,6 +654,7 @@ class AutoScaler(LightningFlow):
         del self._work_registry[index]
         work = getattr(self, work_attribute)
         work.stop()
+        work._url = ""
         self.num_replicas -= 1
         return work_attribute
 
@@ -673,7 +674,7 @@ class AutoScaler(LightningFlow):
         if not self.load_balancer.url:
             return
 
-        self._strategy.run(self, self.workers)
+        self._strategy.run(self.workers, self.create_work, self.add_work, self.remove_work)
         self.fake_trigger += 1  # Note: change state to keep calling `run`.
         self.autoscale()
 
@@ -746,7 +747,7 @@ class AutoScaler(LightningFlow):
                 logger.info(f"Scaling out from {self.num_replicas} to {self.num_replicas + 1}")
                 work = self.create_work()
                 # TODO: move works into structures
-                new_work_id = self.add_work(work)
+                new_work_id, _ = self.add_work(work)
                 logger.info(f"Work created: '{new_work_id}'")
             if num_workers_to_add > 0:
                 self._last_autoscale = time.time()

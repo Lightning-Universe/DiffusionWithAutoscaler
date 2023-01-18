@@ -66,7 +66,7 @@ class Strategy(abc.ABC):
             return getattr(self._session, method)(selected_url + "/" + full_path)
 
     @abc.abstractmethod
-    def run(self, serve_works: List[LightningWork], add_work: Callable) -> Any:
+    def run(self, serve_works: List[LightningWork], create_work: Callable, add_work: Callable, remove_work: Callable) -> Any:
         pass
 
     def on_after_run(self, serve_works: List[LightningWork], res):
@@ -74,36 +74,51 @@ class Strategy(abc.ABC):
 
 
 class PreemptibleRollout(Strategy):
-    def __init__(
-        self,
-        interval: int = 30 * 60,
-        timeout: int = 10 * 60,
-    ) -> None:
+    def __init__(self, interval: int = 30 * 60) -> None:
+        """
+        This strategy implements a mechanism to automatically replace servers on a scheduled internal
+        to continously run on spot instances.
+
+        Arguments:
+            interval: Time in seconds before creating a replacement server.
+        
+        """
         super().__init__()
         self.interval = interval
-        self.timeout = timeout
-        self.last_run_time = None
-        self.has_run = False
         self.work_start_tracker = {}
-        self.replacement_works = {}
+        self.old_works_to_id = {}
+        self.new_to_old_works = {}
 
-    def run(self, serve_works: List[LightningWork], add_work: Callable) -> None:
-        replacement_works = list(self.replacement_works)
-        for new_work in replacement_works:
-            if new_work.url:
-                previous_work = self.replacement_works.pop()
-                previous_work.stop()
+    def run(
+        self,
+        serve_works: List[LightningWork],
+        create_work: Callable,
+        add_work: Callable,
+        remove_work: Callable
+    ) -> None:
+        # The preemtible strategy applies only on spot servers.
+        serve_works = [w for w in serve_works if w.cloud_compute.preemptible]
 
         for work in serve_works:
-            if work.url and work.name not in self.work_start_tracker:
+            if work.url and work not in self.work_start_tracker:
+                print(f"Tracking preemptive {work.name}.")
                 self.work_start_tracker[work] = time.time()
 
         for work, start_time in self.work_start_tracker.items():
-            if self.interval < (time.time() - start_time):
-                new_work = work.clone()
-                add_work(new_work)
-                self.replacement_works[new_work] = work
+            if self.interval < (time.time() - start_time) and work not in self.old_works_to_id:
+                new_work = create_work()
+                new_work_id, num_replicas = add_work(new_work)
+                print(f"Starting replacement for {work.name}: {new_work_id}.")
+                self.old_works_to_id[work] = num_replicas - 1
+                self.new_to_old_works[new_work] = work
 
+        new_works = list(self.new_to_old_works)
+        for new_work in new_works:
+            if new_work.url:
+                old_work = self.new_to_old_works[new_work]
+                del self.work_start_tracker[old_work]
+                remove_work(self.old_works_to_id[old_work])
+                print(f"Removed {old_work.name}.")
 
     def on_after_run(self, serve_works: List[LightningWork], res):
         pass
