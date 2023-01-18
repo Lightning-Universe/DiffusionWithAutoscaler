@@ -19,7 +19,7 @@ class Image(BaseModel):
     @staticmethod
     def request_code_sample(url: str) -> str:
         return (
-                """import base64, requests
+            """import base64, requests
 from pathlib import Path
 
 imgurl = "https://raw.githubusercontent.com/Lightning-AI/LAI-Triton-Server-Component/main/catimage.png"
@@ -57,7 +57,7 @@ class Text(BaseModel):
     @staticmethod
     def request_code_sample(url: str) -> str:
         return (
-                """import base64
+            """import base64
 from pathlib import Path
 import requests
 
@@ -83,18 +83,18 @@ class BatchText(BaseModel):
     @staticmethod
     def request_code_sample(url: str) -> str:
         return (
-                """import base64
+            """import base64
 from pathlib import Path
 import requests
 response = requests.post('"""
-                + url
-                + """', json={
+            + url
+            + """', json={
 "inputs": [{"text": "A portrait of a person looking away from the camera"}]
 })
 # If you are using basic authentication for your app, you should add your credentials to the request:
 # response = requests.post('"""
-                + url
-                + """', json={
+            + url
+            + """', json={
 # "inputs": [{"text": "A portrait of a person looking away from the camera"}],
 # }, auth=requests.auth.HTTPBasicAuth('your_username', 'your_password'))
 """
@@ -123,7 +123,8 @@ class TextImage(BaseModel):
 
     @staticmethod
     def request_code_sample(url: str) -> str:
-        return dedent("""import base64
+        return dedent(
+            """import base64
 from pathlib import Path
 import requests
 
@@ -132,8 +133,8 @@ image = requests.get(url).content
 image = base64.b64encode(image).decode("ascii")
 
 response = requests.post('"""
-    + url
-    + """', 
+            + url
+            + """', 
     json={
         "text": "A fantasy landscape, trending on artstation", 
         "image": image
@@ -141,13 +142,16 @@ response = requests.post('"""
 )
 
 # If you are using basic authentication for your app, you should add your credentials to the request:
-# response = requests.post('""" + url + """',
+# response = requests.post('"""
+            + url
+            + """',
 #    json={
 #        "text": "A fantasy landscape, trending on artstation", 
 #        "image": image,
 #    },
 #    auth=requests.auth.HTTPBasicAuth('your_username', 'your_password')
-#)""")
+#)"""
+        )
 
 
 class BatchTextImage(BaseModel):
@@ -156,7 +160,8 @@ class BatchTextImage(BaseModel):
 
     @staticmethod
     def request_code_sample(url: str) -> str:
-        return dedent("""import base64
+        return dedent(
+            """import base64
 from pathlib import Path
 import requests
 
@@ -165,8 +170,8 @@ image = requests.get(url).content
 image = base64.b64encode(image).decode("ascii")
 
 response = requests.post('"""
-    + url
-    + """', 
+            + url
+            + """', 
     json={
         "inputs": [{
             "text": "A fantasy landscape, trending on artstation", 
@@ -176,7 +181,9 @@ response = requests.post('"""
 )
 
 # If you are using basic authentication for your app, you should add your credentials to the request:
-# response = requests.post('""" + url + """',
+# response = requests.post('"""
+            + url
+            + """',
 #    json={
 #        "inputs": [{
 #            "text": "A fantasy landscape, trending on artstation", 
@@ -184,4 +191,5 @@ response = requests.post('"""
 #        }]
 #    },
 #    auth=requests.auth.HTTPBasicAuth('your_username', 'your_password')
-#)""")
+#)"""
+        )
