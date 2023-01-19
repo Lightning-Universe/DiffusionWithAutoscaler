@@ -94,7 +94,8 @@ class PreemptibleRollout(Strategy):
         self.interval = interval
         self.work_start_tracker = {}
         self.old_works = []
-        self.new_works = []
+        self.new_works = List()
+        self.fake_trigger = 0
 
     def run(
         self,
@@ -102,37 +103,44 @@ class PreemptibleRollout(Strategy):
         create_work: Callable,
         replace_work: Callable,
     ) -> None:
-        # The preemtible strategy applies only on spot servers.
+        self.fake_trigger += 1  # Note: change state to keep calling `run`.
+        # print(self.fake_trigger)
         # serve_works = [w for w in serve_works if w.cloud_compute.preemptible]
 
-        for work in serve_works:
-            if work.url and work not in self.work_start_tracker:
-                print(f"Tracking preemptive {work.name}.")
-                self.work_start_tracker[work] = time.time()
+        for old_work in serve_works:
+            if old_work.url and old_work not in self.work_start_tracker:
+                print(f"Tracking preemptive {old_work.name}.")
+                self.work_start_tracker[old_work] = time.time()
 
-        for work, start_time in self.work_start_tracker.items():
-            if self.interval < (time.time() - start_time) and work not in self.old_works:
+        for old_work, start_time in self.work_start_tracker.items():
+            if self.interval < (time.time() - start_time) and old_work not in self.old_works:
                 new_work = create_work()
-                print(f"Created a new work {work}")
-                self.old_works.append(work)
-                print(f"Appended the old work {work} to old_works")
+                print(f"Created a new work {new_work}")
                 self.new_works.append(new_work)
                 print(f"Appended the new work {new_work} to new_works")
+                self.old_works.append(old_work)
+                print(f"Appended the old work {old_work} to old_works")
+
+        # spin up machines
+        # print(self.new_works)
+        for new_work in self.new_works:
+            new_work.run()
+            print("new_work.run() has run", new_work, new_work.status)
 
         items = zip(self.old_works, self.new_works)
         for old_work, new_work in items:
-            # print("Maybe replacing old", old_work, "with new", new_work)
+            print(new_work.status, new_work.url)
             if new_work.url:
-                print("new_work.url has been issued!", new_work.url)
+                print("Replacing", old_work.url, "with", new_work.url)
                 value = replace_work(old_work, new_work)
                 print(value)
                 # if value is None:
-                #    wait for the next time
+                # wait for the next time
                 # elif value:
                 #     Worked
                 # else:
                 #     It didn't work
-                print(f"Removed {old_work.name}.")
+        print("end of strategy call")
 
     def on_after_run(self, serve_works: List[LightningWork], res):
         pass

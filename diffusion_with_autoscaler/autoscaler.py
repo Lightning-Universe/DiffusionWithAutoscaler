@@ -667,16 +667,16 @@ class AutoScaler(LightningFlow):
         return work
 
     def replace_work(self, old_work: LightningWork, new_work: LightningWork) -> Optional[bool]:
-        # no-op if new work isn't ready yet
-        if not new_work.is_ready:
-            return None
+        # # no-op if new work isn't ready yet
+        if not new_work.url:
+            return
 
         # TODO: improve how to perserve the index of the work name
         _, index, _ = old_work.name.split("_")
         index = int(index)
         work_attribute = f"worker_{index}_{str(uuid.uuid4().hex)}"
 
-        # remove old work (TODO: should be removed after new work is added)
+        # remove old work
         self.remove_work(index)
 
         # add new work
@@ -684,7 +684,7 @@ class AutoScaler(LightningFlow):
         self._work_registry[index] = work_attribute
 
         # let the load balancer know the new URL
-        self.load_balancer.update_servers(self.workers)
+        # self.load_balancer.update_servers(self.workers)
         print(f"Replaced {old_work.name} with {new_work.name}")
         return True
 
@@ -698,12 +698,14 @@ class AutoScaler(LightningFlow):
         if not self.load_balancer.url:
             return
 
-        if self._strategy:
-            self._strategy.run(
-                self.workers,
-                self.create_work,
-                self.replace_work,
-            )
+        # if self._strategy:
+        print("calling strategy.run")
+        self._strategy.run(
+            self.workers,
+            self.create_work,
+            self.replace_work,
+        )
+        print("after strategy.run")
         self.fake_trigger += 1  # Note: change state to keep calling `run`.
         self.autoscale()
 
