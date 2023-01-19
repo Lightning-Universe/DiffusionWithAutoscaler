@@ -5,7 +5,10 @@ import lightning as L
 import asyncio
 import uuid
 import torch
-from diffusion_with_autoscaler import BatchText, BatchImage, Image
+import ldm
+import io
+import base64
+from diffusion_with_autoscaler import BatchText, BatchImage, Image, Text
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
@@ -22,42 +25,56 @@ class DiffusionServer(L.app.components.PythonServer):
         self._requests = {}
         self._predictor_task = None
         self._lock = None
-        self._tokenizer = None
     
     def setup(self):
-        self._tokenizer = lambda x: x if isinstance(x, torch.Tensor) else torch.tensor(1)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._model = ldm.lightning.LightningStableDiffusion(
+            config_path="v1-inference.yaml",
+            checkpoint_path="v1-5-pruned-emaonly.ckpt",
+            device=device,
+            fp16=True, # Supported on GPU, skipped otherwise.
+            use_deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            steps=30,         
+        )
 
-    def inference(self, requests):
-        inputs = [self._tokenizer(request['data']) for request in requests]
-        print(inputs)
-        if len(inputs) == 1:
-            inputs[0] += 1
-        else:
-            inputs = torch.stack(inputs)
-            inputs += 1
-            inputs = torch.unbind(inputs)
-        for request, input in zip(requests, inputs):
-            request['data'] = input
-        return [None for _ in requests]
+    def apply_model(self, requests):
+        return self._model.in_loop_predict_step(requests)
+
+    def sanetize_data(self, request):
+        if "state" in request:
+            return request["state"]
+        return request["data"].text
+
+    def sanetize_results(self, result):
+        image = result
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        image_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        return BatchImage(outputs=[{"image": image_str}])
 
     async def predict_fn(self):
-        while True:
-            async with self._lock:
-                keys = list(self._requests)
+        try:
+            while True:
+                async with self._lock:
+                    keys = list(self._requests)
 
-            if len(keys) == 0:
-                await asyncio.sleep(0.05)
-                continue
-            
-            requests = [self._requests[key] for key in keys]
-            results = self.inference(requests)
+                if len(keys) == 0:
+                    await asyncio.sleep(0.001)
+                    continue
+                
+                inputs = {key: self.sanetize_data(self._requests[key]) for key in keys}
+                results = self.apply_model(inputs)
 
-            for key, result in zip(keys, results):
-                if result:
-                    self._requests[key]['response'].set_result(result)
+                for key, state in inputs.items():
+                    self._requests[key]['state'] = state
+
+                for key in results:
+                    self._requests[key]['response'].set_result(self.sanetize_results(results[key]))
                     del self._requests[key]
 
-            await asyncio.sleep(0.05)
+                await asyncio.sleep(0.001)
+        except Exception as e:
+            print(e)
 
     async def predict(self, request: BatchText):
         if self._lock is None:
@@ -69,7 +86,6 @@ class DiffusionServer(L.app.components.PythonServer):
         async with self._lock:
             self._requests[uuid.uuid4().hex] = {"data": request.inputs[0], "response": future}
         result = await future
-        print('Out', result)
         return result
 
 

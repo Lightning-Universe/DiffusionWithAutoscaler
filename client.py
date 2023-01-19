@@ -25,11 +25,12 @@ def req_and_write(index):
         }
     )
     end = time.time()
+    print(end - start)
     try:
         img = response.json()["image"]
     except Exception:
-        print("index {} failed".format(index))
-        print(response.text)
+        # print("index {} failed".format(index))
+        #print(response.text)
         print("=======================================\n\n")
     else:
         img = base64.b64decode(img.encode("utf-8"))
@@ -45,4 +46,3 @@ while True:
         t.start()
         i += 1
     time.sleep(10)
-    break
