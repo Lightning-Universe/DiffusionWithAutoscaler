@@ -3,7 +3,7 @@ from typing import Any, Optional, Callable
 import time
 import numpy as np
 from fastapi import Request
-from lightning import LightningWork
+from lightning import LightningWork, LightningFlow
 from lightning.app.structures import List
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -42,7 +42,7 @@ def _configure_session() -> Session:
     return http
 
 
-class Strategy(abc.ABC, L.LightningFlow):
+class Strategy(abc.ABC, LightningFlow):
     def __init__(self):
         super().__init__()
         self._session = None
@@ -68,7 +68,12 @@ class Strategy(abc.ABC, L.LightningFlow):
             return getattr(self._session, method)(selected_url + "/" + full_path)
 
     @abc.abstractmethod
-    def run(self, serve_works: List[LightningWork], create_work: Callable, register_work: Callable, replace_work: Callable) -> Any:
+    def run(
+        self,
+        serve_works: List[LightningWork],
+        create_work: Callable,
+        replace_work: Callable,
+    ) -> Any:
         pass
 
     def on_after_run(self, serve_works: List[LightningWork], res):
@@ -83,7 +88,7 @@ class PreemptibleRollout(Strategy):
 
         Arguments:
             interval: Time in seconds before creating a replacement server.
-        
+
         """
         super().__init__()
         self.interval = interval
@@ -98,7 +103,7 @@ class PreemptibleRollout(Strategy):
         replace_work: Callable,
     ) -> None:
         # The preemtible strategy applies only on spot servers.
-        serve_works = [w for w in serve_works if w.cloud_compute.preemptible]
+        # serve_works = [w for w in serve_works if w.cloud_compute.preemptible]
 
         for work in serve_works:
             if work.url and work not in self.work_start_tracker:
@@ -108,19 +113,25 @@ class PreemptibleRollout(Strategy):
         for work, start_time in self.work_start_tracker.items():
             if self.interval < (time.time() - start_time) and work not in self.old_works:
                 new_work = create_work()
+                print(f"Created a new work {work}")
                 self.old_works.append(work)
+                print(f"Appended the old work {work} to old_works")
                 self.new_works.append(new_work)
+                print(f"Appended the new work {new_work} to new_works")
 
         items = zip(self.old_works, self.new_works)
         for old_work, new_work in items:
+            # print("Maybe replacing old", old_work, "with new", new_work)
             if new_work.url:
+                print("new_work.url has been issued!", new_work.url)
                 value = replace_work(old_work, new_work)
-                if value is None:
-                   wait for the next time
-                elif value:
-                    Worked
-                else:
-                    It didn't work
+                print(value)
+                # if value is None:
+                #    wait for the next time
+                # elif value:
+                #     Worked
+                # else:
+                #     It didn't work
                 print(f"Removed {old_work.name}.")
 
     def on_after_run(self, serve_works: List[LightningWork], res):

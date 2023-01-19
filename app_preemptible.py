@@ -23,7 +23,7 @@ class MyPythonServer(L.app.components.PythonServer):
 component = AutoScaler(
     MyPythonServer,
     cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
-    strategy=PreemptibleRollout(),
+    strategy=PreemptibleRollout(interval=7),
     # autoscaler args
     min_replicas=1,
     max_replicas=1,
