@@ -92,8 +92,8 @@ class PreemptibleRollout(Strategy):
         """
         super().__init__()
         self.interval = interval
-        self.work_start_tracker = {}
-        self.old_works = []
+        self._work_start_tracker = {}
+        self._old_works = []
         self.new_works = List()
         self.fake_trigger = 0
 
@@ -108,30 +108,28 @@ class PreemptibleRollout(Strategy):
         # serve_works = [w for w in serve_works if w.cloud_compute.preemptible]
 
         for old_work in serve_works:
-            if old_work.url and old_work not in self.work_start_tracker:
+            if old_work.url and old_work not in self._work_start_tracker:
                 print(f"Tracking preemptive {old_work.name}.")
-                self.work_start_tracker[old_work] = time.time()
+                self._work_start_tracker[old_work] = time.time()
 
-        for old_work, start_time in self.work_start_tracker.items():
-            if self.interval < (time.time() - start_time) and old_work not in self.old_works:
+        for old_work, start_time in self._work_start_tracker.items():
+            if self.interval < (time.time() - start_time) and old_work not in self._old_works:
                 new_work = create_work()
                 print(f"Created a new work {new_work}")
                 self.new_works.append(new_work)
                 print(f"Appended the new work {new_work} to new_works")
-                self.old_works.append(old_work)
+                self._old_works.append(old_work)
                 print(f"Appended the old work {old_work} to old_works")
 
         # spin up machines
-        # print(self.new_works)
         for new_work in self.new_works:
             new_work.run()
-            print("new_work.run() has run", new_work, new_work.status)
 
-        items = zip(self.old_works, self.new_works)
+        items = zip(self._old_works, self.new_works)
         for old_work, new_work in items:
-            print(new_work.status, new_work.url)
+            print(old_work.status, old_work.url, "->", new_work.status, new_work.url)
             if new_work.url:
-                print("Replacing", old_work.url, "with", new_work.url)
+                print("calling replace_work(", old_work.url, new_work.url, ")")
                 value = replace_work(old_work, new_work)
                 print(value)
                 # if value is None:
@@ -140,7 +138,6 @@ class PreemptibleRollout(Strategy):
                 #     Worked
                 # else:
                 #     It didn't work
-        print("end of strategy call")
 
     def on_after_run(self, serve_works: List[LightningWork], res):
         pass

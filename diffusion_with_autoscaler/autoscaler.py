@@ -588,7 +588,7 @@ class AutoScaler(LightningFlow):
 
         self._input_type = input_type
         self._output_type = output_type
-        self._strategy = strategy
+        self.strategy = strategy
         self._strategy_has_run = False
         self._last_res_hash = None
         self.scale_out_interval = scale_out_interval
@@ -699,13 +699,11 @@ class AutoScaler(LightningFlow):
             return
 
         # if self._strategy:
-        print("calling strategy.run")
-        self._strategy.run(
+        self.strategy.run(
             self.workers,
             self.create_work,
             self.replace_work,
         )
-        print("after strategy.run")
         self.fake_trigger += 1  # Note: change state to keep calling `run`.
         self.autoscale()
 
