@@ -667,25 +667,25 @@ class AutoScaler(LightningFlow):
         return work
 
     def replace_work(self, old_work: LightningWork, new_work: LightningWork) -> Optional[bool]:
-        # no-op if new work already attached to the autoscaler & still not ready
-        if new_work.name not in self._work_registry:
-            # TODO: improve how to perserve the index of the work name
-            _, index, _ = old_work.name.split("_")
-            index = int(index)
-            work_attribute = f"worker_{index}_{str(uuid.uuid4().hex)}"
+        # no-op if new work isn't ready yet
+        if not new_work.is_ready:
+            return None
 
-            # add work without incrementing num_replicas
-            setattr(self, work_attribute, new_work)
-            self._work_registry[index] = work_attribute
+        # TODO: improve how to perserve the index of the work name
+        _, index, _ = old_work.name.split("_")
+        index = int(index)
+        work_attribute = f"worker_{index}_{str(uuid.uuid4().hex)}"
 
-        # remove old work once the new work gets ready
-        if new_work.url:
-            # remove old work (TODO: should be removed after new work is added)
-            self.remove_work(index)
+        # remove old work (TODO: should be removed after new work is added)
+        self.remove_work(index)
 
-            # let the load balancer know the new URL
-            self.load_balancer.update_servers(self.workers)
-            print(f"Replaced {old_work.name} with {new_work.name}")
+        # add new work
+        setattr(self, work_attribute, new_work)
+        self._work_registry[index] = work_attribute
+
+        # let the load balancer know the new URL
+        self.load_balancer.update_servers(self.workers)
+        print(f"Replaced {old_work.name} with {new_work.name}")
         return True
 
     def run(self):
