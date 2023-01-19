@@ -59,7 +59,7 @@ component = AutoScaler(
     timeout_batching=0.3,
     input_type=Text,
     output_type=Image,
-    batching="continuous",
+    batching="streamed",
 )
 
 app = L.LightningApp(component)

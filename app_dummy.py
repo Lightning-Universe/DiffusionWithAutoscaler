@@ -8,7 +8,7 @@ import torch
 import ldm
 import io
 import base64
-from diffusion_with_autoscaler import BatchText, BatchImage, Image, Text
+from diffusion_with_autoscaler import BatchText, BatchImage, Image, Text, AutoScaler
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
@@ -77,33 +77,37 @@ class DiffusionServer(L.app.components.PythonServer):
             print(e)
 
     async def predict(self, request: BatchText):
-        if self._lock is None:
-            self._lock = asyncio.Lock()
-        if self._predictor_task is None:
-            self._predictor_task = asyncio.create_task(self.predict_fn())
-        assert len(request.inputs) == 1
-        future = asyncio.Future()
-        async with self._lock:
-            self._requests[uuid.uuid4().hex] = {"data": request.inputs[0], "response": future}
-        result = await future
-        return result
+        print(request)
+        try:
+            if self._lock is None:
+                self._lock = asyncio.Lock()
+            if self._predictor_task is None:
+                self._predictor_task = asyncio.create_task(self.predict_fn())
+            assert len(request.inputs) == 1
+            future = asyncio.Future()
+            async with self._lock:
+                self._requests[uuid.uuid4().hex] = {"data": request.inputs[0], "response": future}
+            result = await future
+            return result
+        except Exception as e:
+            print(e)
 
 
-# component = AutoScaler(
-#     DiffusionServer,  # The component to scale
-#     cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
+component = AutoScaler(
+    DiffusionServer,  # The component to scale
+    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
 
-#     # autoscaler args
-#     min_replicas=1,
-#     max_replicas=1,
-#     endpoint="/predict",
-#     scale_out_interval=0,
-#     scale_in_interval=600,
-#     max_batch_size=6,
-#     timeout_batching=0.3,
-#     input_type=Text,
-#     output_type=Image,
-#     batching="continuous",
-# )
-component = DiffusionServer()
+    # autoscaler args
+    min_replicas=1,
+    max_replicas=1,
+    endpoint="/predict",
+    scale_out_interval=0,
+    scale_in_interval=600,
+    max_batch_size=6,
+    timeout_batching=0.3,
+    input_type=Text,
+    output_type=Image,
+    batching="streamed",
+)
+# component = DiffusionServer()
 app = L.LightningApp(component)

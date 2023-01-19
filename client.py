@@ -10,15 +10,15 @@ import threading
 def req_and_write(index):
     start = time.time()
     response = requests.post(
-        'http://127.0.0.1:5050/predict', 
-        # json={
-        #     "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
-        # },
+        'http://127.0.0.1:6001/predict', 
         json={
-            "inputs": [{
-                "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
-            }]
+            "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
         },
+        # json={
+        #     "inputs": [{
+        #         "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
+        #     }]
+        # },
         headers = {
             "accept": "application/json",
             "Content-Type": "application/json",
