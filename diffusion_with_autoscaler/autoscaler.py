@@ -667,7 +667,6 @@ class AutoScaler(LightningFlow):
         work.stop()
         # Need to restart the url, so the strategy doesn't consider it as alive.
         work._url = ""
-        self.num_replicas -= 1
         return work_attribute
 
     def get_work_index(self, work) -> int:
@@ -680,10 +679,13 @@ class AutoScaler(LightningFlow):
         index = self.get_work_index(work)
         return self.remove_work(index)
 
-    def register_work(self, work: LightningWork, as_replacement_of: LightningWork) -> str:
-        # TODO: issue a new work_attribute with the same index
-        # TODO: settattr work to self
-        pass
+    def register_work(self, old_work: LightningWork, new_work: LightningWork) -> str:
+        # preserve the index
+        index = self.get_work_index(old_work)
+        work_attribute = f"worker_{index}_{uuid.uuid4().hex}"
+        # register as a background work not to affect the scaling logic
+        self._background_work_registry[index] = work_attribute
+        setattr(self, work_attribute, new_work)
 
     def get_work(self, index: int) -> LightningWork:
         """Returns the ``LightningWork`` instance with the given index."""
@@ -699,27 +701,19 @@ class AutoScaler(LightningFlow):
         index = self.get_work_index(old_work)
         assert index == self.get_work_index(new_work)
 
-        # check if old_work is still alive before replacing with new_work
         if old_work not in self.workers:
-            # TODO: remove new_work from background_workers
-            pass
-
-        removed_work_attribute = self.remove_work_by_instance(old_work)
-
-        # work_attribute = f"worker_{index}_{uuid.uuid4().hex}"
-
-        # remove old work
-        self.remove_work(index)
+            print("Existing work was replaced before replacement with a new work completes. Removing the new work.")
+            self.remove_work_by_instance(new_work)
+            return False
 
         # update the registry
         old_work_attribute = self._work_registry[index]
-        self._work_registry[index] = new_work_attribute
+        self._work_registry[index] = new_work.name  # not sure if correct
 
         # let the load balancer know the new URL
         self.load_balancer.update_servers(self.workers)
         # finally remove the work
         self.remove_work_by_instance(old_work)
-
         print(f"Replaced {old_work.name} with {new_work.name}")
         return True
 
@@ -737,6 +731,7 @@ class AutoScaler(LightningFlow):
         self.strategy.run(
             self.workers,
             self.create_work,
+            self.register_work,  # TODO: remove?
             self.replace_work,
         )
         self.fake_trigger += 1  # Note: change state to keep calling `run`.
@@ -824,6 +819,7 @@ class AutoScaler(LightningFlow):
             for _ in range(num_workers_to_remove):
                 logger.info(f"Scaling in from {self.num_replicas} to {self.num_replicas - 1}")
                 removed_work_id = self.remove_work(self.num_replicas - 1)
+                self.num_replicas -= 1
                 logger.info(f"Work removed: '{removed_work_id}'")
             if num_workers_to_remove > 0:
                 self._last_autoscale = time.time()

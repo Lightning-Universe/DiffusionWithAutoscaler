@@ -116,13 +116,17 @@ class PreemptibleRollout(Strategy):
 
         # step 2: ask autoscaler to launch new works to replace old works with later
         for old_work, start_time in self._work_start_tracker.items():
-            if self.interval < time.time() - start_time:
+            if self.interval > time.time() - start_time:
+                print("Skipped registering a new work because interval not reached yet", time.time() - start_time)
                 continue
+            else:
+                print("Registering a new work")
 
-            if old_work not in self._old_works:
+            if old_work not in self._old_to_new_work:
                 new_work = create_work()
-                _ = register_work(new_work)  # autoscaler will launch new_work in the background
+                _ = register_work(old_work, new_work)  # autoscaler will launch new_work in the background
                 self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work
+                self._work_start_tracker[old_work] = time.time()
 
         # step 3: replace old works with new works if new ones are ready
         for old_work, new_work in self._old_to_new_work.items():
@@ -134,7 +138,7 @@ class PreemptibleRollout(Strategy):
                 # elif value is True:
                 #     print("replacement succeeded.")
                 # elif value is False:
-                #     print("replacement failed.")
+                #     print("replacement cancelled.")
                 # else:
                 #     print("replacement unknown status idk")
                 del self._work_start_tracker[old_work]
