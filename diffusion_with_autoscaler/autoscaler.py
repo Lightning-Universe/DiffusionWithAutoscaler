@@ -722,7 +722,6 @@ class AutoScaler(LightningFlow):
         del self._background_work_registry[index]
 
         # let the load balancer know the new URL
-        assert len(self.workers) == 1
         self.load_balancer.update_servers(self.workers)
         print(f"Replaced {old_work.name} with {new_work.name}")
         return True
@@ -740,13 +739,13 @@ class AutoScaler(LightningFlow):
         if not self.load_balancer.url:
             return
 
-        # if self._strategy:
-        self.strategy.run(
-            self.workers,
-            self.create_work,
-            self.register_work,  # TODO: remove?
-            self.replace_work,
-        )
+        if self.strategy:
+            self.strategy.run(
+                self.workers,
+                self.create_work,
+                self.register_work,  # TODO: remove?
+                self.replace_work,
+            )
         self.fake_trigger += 1  # Note: change state to keep calling `run`.
         self.autoscale()
 
