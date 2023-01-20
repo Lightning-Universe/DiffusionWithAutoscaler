@@ -581,6 +581,7 @@ class AutoScaler(LightningFlow):
         super().__init__()
         self.num_replicas = 0
         self._work_registry = {}
+        self._work_registry_hidden = {}
 
         self._work_cls = work_cls
         self._work_args = work_args
@@ -624,6 +625,14 @@ class AutoScaler(LightningFlow):
     def workers(self) -> List[LightningWork]:
         return [self.get_work(i) for i in range(self.num_replicas)]
 
+    @property
+    def hidden_workers(self) -> Dict[int, LightningWork]:
+        workers = []
+        for index, work_attribute in self._work_registry_hidden.items():
+            work = getattr(self, work_attribute)
+            workers.append(work)
+        return workers
+
     def create_work(self) -> LightningWork:
         """Replicates a LightningWork instance with args and kwargs provided via ``__init__``."""
         cloud_compute = self._work_kwargs.get("cloud_compute", None)
@@ -635,19 +644,35 @@ class AutoScaler(LightningFlow):
         )
         return self._work_cls(*self._work_args, **self._work_kwargs)
 
-    def add_work(self, work) -> str:
+    def add_work(self, work: LightningWork, hide: bool = False, work_to_replace: Optional[LightningWork] = None) -> str:
         """Adds a new LightningWork instance.
+
+        Args:
+            work: A LightningWork instance to attach to AutoScaler.
+            work_to_replace: If given, the load balancer won't be notified of the new work URL.
 
         Returns:
             The name of the new work attribute.
         """
-        work_attribute = uuid.uuid4().hex
-        work_attribute = f"worker_{self.num_replicas}_{str(work_attribute)}"
+
+        if work_to_replace:
+            # TODO: improve how to perserve the index of the work name
+            _, index, _ = work_to_replace.name.split("_")
+            index = int(index)
+            # don't increament num_replicas
+        else:
+            index = self.num_replicas
+            self.num_replicas += 1
+
+        work_attribute = f"worker_{index}_{uuid.uuid4().hex}"
         setattr(self, work_attribute, work)
-        self._work_registry[self.num_replicas] = work_attribute
-        self.num_replicas += 1
-        print(f"work_attribute: {work_attribute}")
-        print(f"work.name: {work.name}")
+
+        if work_to_replace:
+            # TODO: assuming each running work has up to only one hidden corresponding work
+            self._work_registry_hidden[index] = work_attribute
+        else:
+            self._work_registry[self.num_replicas] = work_attribute
+            self.num_replicas += 1
         return work_attribute, self.num_replicas
 
     def remove_work(self, index: int) -> str:
@@ -666,33 +691,35 @@ class AutoScaler(LightningFlow):
         work = getattr(self, work_attribute)
         return work
 
-    def replace_work(self, old_work: LightningWork, new_work: LightningWork) -> Optional[bool]:
-        # # no-op if new work isn't ready yet
-        if not new_work.url:
-            return
+    # def replace_work(self, old_work_attribute: str, new_work_attribute) -> Optional[bool]:
+    #     # TODO: improve how to perserve the index of the work name
+    #     _, index, _ = old_work_attribute.split("_")
+    #     index = int(index)
+    #     work_attribute = f"worker_{index}_{str(uuid.uuid4().hex)}"
 
-        # TODO: improve how to perserve the index of the work name
-        _, index, _ = old_work.name.split("_")
-        index = int(index)
-        work_attribute = f"worker_{index}_{str(uuid.uuid4().hex)}"
+    #     # remove old work
+    #     self.remove_work(index)
 
-        # remove old work
-        self.remove_work(index)
+    #     # add new work
+    #     setattr(self, work_attribute, new_work)
+    #     self._work_registry[index] = work_attribute
 
-        # add new work
-        setattr(self, work_attribute, new_work)
-        self._work_registry[index] = work_attribute
-
-        # let the load balancer know the new URL
-        # self.load_balancer.update_servers(self.workers)
-        print(f"Replaced {old_work.name} with {new_work.name}")
-        return True
+    #     # let the load balancer know the new URL
+    #     # self.load_balancer.update_servers(self.workers)
+    #     print(f"Replaced {old_work.name} with {new_work.name}")
+    #     return True
 
     def run(self):
         if not self.load_balancer.is_running:
             self.load_balancer.run()
 
         for work in self.workers:
+            work.run()
+
+        # launch servers in background
+        for work in self.hidden_workers:
+            # TODO: these works being launched below may not be needed anymore
+            # because autoscaler may remove the corresponding work as it scales in.
             work.run()
 
         if not self.load_balancer.url:

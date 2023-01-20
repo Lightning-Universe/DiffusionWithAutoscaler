@@ -67,6 +67,9 @@ class Strategy(abc.ABC, LightningFlow):
         else:
             return getattr(self._session, method)(selected_url + "/" + full_path)
 
+    def update_tracker(self) -> None:
+        """Removes new works if corresponding works are removed by the autoscaler"""
+
     @abc.abstractmethod
     def run(
         self,
@@ -79,7 +82,6 @@ class Strategy(abc.ABC, LightningFlow):
         - how to create works, e.g. create_work(weight_path="path/to/new_weights")
         - when to replace old works with new works
         """
-
         pass
 
     def on_after_run(self, serve_works: List[LightningWork], res):
@@ -99,22 +101,20 @@ class PreemptibleRollout(Strategy):
         super().__init__()
         self.interval = interval
         self._work_start_tracker = {}
-        self._old_works = []
-        self.new_works = List()
         self.fake_trigger = 0
 
     def run(
         self,
         serve_works: List[LightningWork],
         create_work: Callable,
+        add_work: Callable,
         replace_work: Callable,
     ) -> None:
         self.fake_trigger += 1  # Note: change state to keep calling `run`.
-        # print(self.fake_trigger)
         # serve_works = [w for w in serve_works if w.cloud_compute.preemptible]
 
-        for old_work in serve_works:
-            if old_work.url and old_work not in self._work_start_tracker:
+        for work in serve_works:
+            if work.url and work not in self._work_start_tracker:
                 print(f"Tracking preemptive {old_work.name}.")
                 self._work_start_tracker[old_work] = time.time()
 
@@ -122,30 +122,25 @@ class PreemptibleRollout(Strategy):
             if self.interval < (time.time() - start_time) and old_work not in self._old_works:
                 new_work = create_work()
                 print(f"Created a new work {new_work}")
+                new_work_attribute, _ = add_work(new_work, hide=True)
                 self.new_works.append(new_work)
                 print(f"Appended the new work {new_work} to new_works")
                 self._old_works.append(old_work)
                 print(f"Appended the old work {old_work} to old_works")
 
-        # spin up machines
-        for new_work in self.new_works:
-            # TODO: these works being launched below may not be needed anymore
-            # because autoscaler may remove the corresponding work as it scales in.
-            new_work.run()
-
-        items = zip(self._old_works, self.new_works)
-        for old_work, new_work in items:
-            print(old_work.status, old_work.url, "->", new_work.status, new_work.url)
-            if new_work.url:
-                print("calling replace_work(", old_work.url, new_work.url, ")")
-                value = replace_work(old_work, new_work)
-                print(value)
-                # if value is None:
-                # wait for the next time
-                # elif value:
-                #     Worked
-                # else:
-                #     It didn't work
+        # items = zip(self._old_works, self.new_works)
+        # for old_work, new_work in items:
+        #     print(old_work.status, old_work.url, "->", new_work.status, new_work.url)
+        #     if new_work.url:
+        #         print("calling replace_work(", old_work.url, new_work.url, ")")
+        #         value = replace_work(old_work, new_work)
+        #         print(value)
+        #         # if value is None:
+        #         # wait for the next time
+        #         # elif value:
+        #         #     Worked
+        #         # else:
+        #         #     It didn't work
 
     def on_after_run(self, serve_works: List[LightningWork], res):
         pass
