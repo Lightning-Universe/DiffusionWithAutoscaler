@@ -123,6 +123,8 @@ class PreemptibleRollout(Strategy):
 
         # spin up machines
         for new_work in self.new_works:
+            # TODO: these works being launched below may not be needed anymore
+            # because autoscaler may remove the corresponding work as it scales in.
             new_work.run()
 
         items = zip(self._old_works, self.new_works)
