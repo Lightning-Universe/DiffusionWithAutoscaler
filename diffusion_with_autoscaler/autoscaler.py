@@ -178,7 +178,7 @@ class _LoadBalancer(LightningWork):
         self._server_status = {}
         self._api_name = api_name
         self.ready = False
-        self._lock = asyncio.Lock()
+        self._lock = None
 
         if not endpoint.startswith("/"):
             endpoint = "/" + endpoint
@@ -348,6 +348,7 @@ class _LoadBalancer(LightningWork):
         logger.info(f"servers: {self.servers}")
 
         self._iter = cycle(self.servers)
+        self._lock = asyncio.Lock()
 
         fastapi_app = _create_fastapi("Load Balancer")
         fastapi_app.SEND_TASK = None
