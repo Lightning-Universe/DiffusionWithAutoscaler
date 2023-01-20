@@ -40,7 +40,7 @@ class DiffusionServer(L.app.components.PythonServer):
             deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             cuda_graph=True, # Supported on GPU, skipped otherwise.
             context="no_grad",
-            flash_attention="hazy",
+            flash_attention="triton",
             steps=30,         
         )
 
