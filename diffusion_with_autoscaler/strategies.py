@@ -74,6 +74,12 @@ class Strategy(abc.ABC, LightningFlow):
         create_work: Callable,
         replace_work: Callable,
     ) -> Any:
+        """Controls the following:
+        - when to create works
+        - how to create works, e.g. create_work(weight_path="path/to/new_weights")
+        - when to replace old works with new works
+        """
+
         pass
 
     def on_after_run(self, serve_works: List[LightningWork], res):
