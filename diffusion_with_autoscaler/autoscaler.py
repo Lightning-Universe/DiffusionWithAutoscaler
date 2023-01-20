@@ -332,34 +332,6 @@ class _LoadBalancer(LightningWork):
                 _maybe_raise_granular_exception(result)
                 return result
 
-    # async def streamed_process_request(self, data: BaseModel, request_id=None):
-    #     if request_id is None:
-    #         request_id = uuid.uuid4().hex
-    #     if not self.servers and not self._cold_start_proxy:
-    #         # sleeping to trigger the scale up
-    #         await asyncio.sleep(10)
-    #         raise HTTPException(503, "None of the workers are healthy!, try again in a few seconds")
-
-    #     # if no servers are available, proxy the request to cold start proxy handler
-    #     if not self.servers and self._cold_start_proxy:
-    #         return await self._cold_start_proxy.handle_request(data)
-
-    #     # if out of capacity, proxy the request to cold start proxy handler
-    #     if not self._has_processing_capacity() and self._cold_start_proxy:
-    #         return await self._cold_start_proxy.handle_request(data)
-
-    #     with self._lock():
-    #         server_url = self._find_free_server()
-    #     asyncio.create_task(self.send_batch([[request_id, data]], server_url))
-
-    #     while True:
-    #         await asyncio.sleep(0.001)
-    #         if request_id in self._responses:
-    #             result = self._responses[request_id]
-    #             del self._responses[request_id]
-    #             _maybe_raise_granular_exception(result)
-    #             return result
-
     def _has_processing_capacity(self):
         """This function checks if we have processing capacity for one more request or not.
 
