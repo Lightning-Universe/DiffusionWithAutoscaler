@@ -10,6 +10,7 @@ import io
 import os
 import base64
 from diffusion_with_autoscaler import BatchText, BatchImage, Image, Text, AutoScaler
+import traceback
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
@@ -73,15 +74,18 @@ class DiffusionServer(L.app.components.PythonServer):
                 results = self.apply_model(inputs)
 
                 for key, state in inputs.items():
-                    self._requests[key]['state'] = state
+                    if key == "global_state":
+                        self._requests['global_state'] = {"state": state}
+                    else:
+                        self._requests[key]['state'] = state
 
                 for key in results:
                     self._requests[key]['response'].set_result(self.sanetize_results(results[key]))
                     del self._requests[key]
 
                 await asyncio.sleep(0.001)
-        except Exception as e:
-            print(e)
+        except Exception:
+            print(traceback.print_exc())
 
     async def predict(self, request: BatchText):
         print(request)
@@ -96,8 +100,8 @@ class DiffusionServer(L.app.components.PythonServer):
                 self._requests[uuid.uuid4().hex] = {"data": request.inputs[0], "response": future}
             result = await future
             return result
-        except Exception as e:
-            print(e)
+        except Exception:
+            print(traceback.print_exc())
 
 
 component = AutoScaler(
