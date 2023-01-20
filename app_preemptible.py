@@ -24,8 +24,8 @@ class MyPythonServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     MyPythonServer,
-    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
-    strategy=IntervalReplacement(interval=7),
+    cloud_compute=L.CloudCompute("cpu-medium", disk_size=80),
+    strategy=IntervalReplacement(interval=5 * 60),
     # autoscaler args
     min_replicas=1,
     max_replicas=1,

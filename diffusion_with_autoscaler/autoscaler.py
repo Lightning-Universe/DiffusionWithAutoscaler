@@ -698,6 +698,8 @@ class AutoScaler(LightningFlow):
 
     def replace_work(self, old_work: LightningWork, new_work: LightningWork) -> Optional[bool]:
         # Note: both works need to be already attached to the autoscaler and running
+        assert old_work in self.workers
+        assert new_work in self.background_workers
 
         # TODO: remove the constraint of the index of both old/new work having to be the same
         # The constraint stems from AE heavily relying on index to handle scaling out/in.
@@ -710,18 +712,18 @@ class AutoScaler(LightningFlow):
             self.remove_work_by_instance(new_work)
             return False
 
-        # update the registry from old work to new work
-        old_work_attribute = self._work_registry[index]
-        # new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
-        self._work_registry[index] = new_work.name.split(".")[-1]
-
         if not new_work.url:
             return False
 
-        # let the load balancer know the new URL
-        self.load_balancer.update_servers(self.workers)
-        # finally remove the work
+        # update the registry from old work to new work
         self.remove_work_by_instance(old_work)
+        # new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
+        self._work_registry[index] = new_work.name.split(".")[-1]
+        del self._background_work_registry[index]
+
+        # let the load balancer know the new URL
+        assert len(self.workers) == 1
+        self.load_balancer.update_servers(self.workers)
         print(f"Replaced {old_work.name} with {new_work.name}")
         return True
 

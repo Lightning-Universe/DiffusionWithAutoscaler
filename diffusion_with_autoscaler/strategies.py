@@ -94,7 +94,6 @@ class IntervalReplacement(Strategy):
 
         Arguments:
             interval: Time in seconds before creating a replacement server.
-
         """
         super().__init__()
         self.interval = interval
@@ -108,7 +107,6 @@ class IntervalReplacement(Strategy):
         register_work: Callable,
         replace_work: Callable,
     ) -> None:
-        time.sleep(0.2)
         # step 1: collect running works to replace
         for work in serve_works:
             if work.url and work not in self._work_start_tracker:
@@ -117,7 +115,6 @@ class IntervalReplacement(Strategy):
 
         # step 2: ask autoscaler to launch new works to replace old works with later
         for old_work, start_time in self._work_start_tracker.items():
-            print("continue?", self.interval > time.time() - start_time, self.interval, ">", time.time() - start_time)
             if self.interval > time.time() - start_time:
                 continue
 
@@ -134,8 +131,7 @@ class IntervalReplacement(Strategy):
                 )
 
         # step 3: replace old works with new works if new ones are ready
-        items = self._old_to_new_work.items()
-        for old_work, new_work in items:
+        for old_work, new_work in {**self._old_to_new_work}.items():
             print(f"A pair of {old_work} and {new_work}")
             if not new_work.url:
                 print("Don't start replacing as new_work.url isn't ready")
