@@ -104,9 +104,7 @@ class PreemptibleRollout(Strategy):
     def run(
         self,
         serve_works: List[LightningWork],
-        serve_works_background: List[LightningWork],
         create_work: Callable,
-        add_work: Callable,
         register_work: Callable,
         replace_work: Callable,
     ) -> None:
@@ -123,14 +121,22 @@ class PreemptibleRollout(Strategy):
 
             if old_work not in self._old_works:
                 new_work = create_work()
-                _ = register_work(new_work)  # autoscaler will launch new_work
-                self._old_to_new_work[old_work] = new_work  # holds which old work to replace with which new work
+                _ = register_work(new_work)  # autoscaler will launch new_work in the background
+                self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work
 
         # step 3: replace old works with new works if new ones are ready
         for old_work, new_work in self._old_to_new_work.items():
             if new_work.url:
                 value = replace_work(old_work, new_work)
                 print(f"Maybe replaced with {old_work} with {new_work} -> value: {value}")
+                # if value is None:
+                #     print("do it again :)")
+                # elif value is True:
+                #     print("replacement succeeded.")
+                # elif value is False:
+                #     print("replacement failed.")
+                # else:
+                #     print("replacement unknown status idk")
                 del self._work_start_tracker[old_work]
                 del self._old_to_new_work[old_work]
 

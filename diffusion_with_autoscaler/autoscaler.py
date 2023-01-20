@@ -581,6 +581,7 @@ class AutoScaler(LightningFlow):
         super().__init__()
         self.num_replicas = 0
         self._work_registry = {}
+        self._background_work_registry = {}
 
         self._work_cls = work_cls
         self._work_args = work_args
@@ -624,6 +625,14 @@ class AutoScaler(LightningFlow):
     def workers(self) -> List[LightningWork]:
         return [self.get_work(i) for i in range(self.num_replicas)]
 
+    @property
+    def background_workers(self) -> Dict[int, LightningWork]:
+        workers = []
+        for index, work_attribute in self._background_work_registry.items():
+            work = getattr(self, work_attribute)
+            workers.append(work)
+        return workers
+
     def create_work(self) -> LightningWork:
         """Replicates a LightningWork instance with args and kwargs provided via ``__init__``."""
         cloud_compute = self._work_kwargs.get("cloud_compute", None)
@@ -656,9 +665,25 @@ class AutoScaler(LightningFlow):
         del self._work_registry[index]
         work = getattr(self, work_attribute)
         work.stop()
+        # Need to restart the url, so the strategy doesn't consider it as alive.
         work._url = ""
         self.num_replicas -= 1
         return work_attribute
+
+    def get_work_index(self, work) -> int:
+        # TODO: improve index retrieval by removing the strong assumption
+        # on the attribute name `root.worker_0_3834a39094a0490182e01f4c6ca3d3af`
+        _, index, _ = work.name.split("_")
+        return int(index)
+
+    def remove_work_by_instance(self, work: LightningWork) -> str:
+        index = self.get_work_index(work)
+        return self.remove_work(index)
+
+    def register_work(self, work: LightningWork, as_replacement_of: LightningWork) -> str:
+        # TODO: issue a new work_attribute with the same index
+        # TODO: settattr work to self
+        pass
 
     def get_work(self, index: int) -> LightningWork:
         """Returns the ``LightningWork`` instance with the given index."""
@@ -667,24 +692,34 @@ class AutoScaler(LightningFlow):
         return work
 
     def replace_work(self, old_work: LightningWork, new_work: LightningWork) -> Optional[bool]:
-        # # no-op if new work isn't ready yet
-        if not new_work.url:
-            return
+        # Note: both works need to be already attached to the autoscaler and running
 
-        # TODO: improve how to perserve the index of the work name
-        _, index, _ = old_work.name.split("_")
-        index = int(index)
-        work_attribute = f"worker_{index}_{str(uuid.uuid4().hex)}"
+        # TODO: remove the constraint of the index of both old/new work having to be the same
+        # The constraint stems from AE heavily relying on index to handle scaling out/in.
+        index = self.get_work_index(old_work)
+        assert index == self.get_work_index(new_work)
+
+        # check if old_work is still alive before replacing with new_work
+        if old_work not in self.workers:
+            # TODO: remove new_work from background_workers
+            pass
+
+        removed_work_attribute = self.remove_work_by_instance(old_work)
+
+        # work_attribute = f"worker_{index}_{uuid.uuid4().hex}"
 
         # remove old work
         self.remove_work(index)
 
-        # add new work
-        setattr(self, work_attribute, new_work)
-        self._work_registry[index] = work_attribute
+        # update the registry
+        old_work_attribute = self._work_registry[index]
+        self._work_registry[index] = new_work_attribute
 
         # let the load balancer know the new URL
-        # self.load_balancer.update_servers(self.workers)
+        self.load_balancer.update_servers(self.workers)
+        # finally remove the work
+        self.remove_work_by_instance(old_work)
+
         print(f"Replaced {old_work.name} with {new_work.name}")
         return True
 
