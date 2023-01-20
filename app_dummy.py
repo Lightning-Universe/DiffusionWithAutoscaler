@@ -33,10 +33,10 @@ class DiffusionServer(L.app.components.PythonServer):
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
             fp16=True, # Supported on GPU, skipped otherwise.
-            use_deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
-            enable_cuda_graph=True, # Supported on Ampere and RTX, skipped otherwise.
-            use_inference_context=True, # Supported on Ampere and RTX, skipped otherwise.
-            use_triton_attention=True,
+            deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            cuda_graph=True, # Supported on GPU, skipped otherwise.
+            context="no_grad",
+            flash_attention="hazy",
             steps=30,         
         )
 

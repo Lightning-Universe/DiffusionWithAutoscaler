@@ -26,7 +26,7 @@ class DiffusionServer(L.app.components.PythonServer):
         #     checkpoint_path="v1-5-pruned-emaonly.ckpt",
         #     device=device,
         #     fp16=True, # Supported on GPU, skipped otherwise.
-        #     use_deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+        #     deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
         #     steps=30,         
         # )
         pass
