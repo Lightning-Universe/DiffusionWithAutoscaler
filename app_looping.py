@@ -28,8 +28,9 @@ class DiffusionServer(L.app.components.PythonServer):
         self._lock = None
     
     def setup(self):
-        cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
-        os.system(cmd)
+        if not os.path.exists("v1-5-pruned-emaonly.ckpt"):
+            cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
+            os.system(cmd)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self._model = ldm.lightning.LightningStableDiffusion(
             config_path="v1-inference.yaml",
