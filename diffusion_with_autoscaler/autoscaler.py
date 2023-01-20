@@ -686,6 +686,9 @@ class AutoScaler(LightningFlow):
         # register as a background work not to affect the scaling logic
         self._background_work_registry[index] = work_attribute
         setattr(self, work_attribute, new_work)
+        print(f"Registered new work as self.{work_attribute}")
+        print(f"    self.workers={self.workers}")
+        print(f"    self.bg_workers={self.background_workers}")
 
     def get_work(self, index: int) -> LightningWork:
         """Returns the ``LightningWork`` instance with the given index."""
@@ -701,14 +704,19 @@ class AutoScaler(LightningFlow):
         index = self.get_work_index(old_work)
         assert index == self.get_work_index(new_work)
 
+        # if autoscaler has scaled in
         if old_work not in self.workers:
             print("Existing work was replaced before replacement with a new work completes. Removing the new work.")
             self.remove_work_by_instance(new_work)
             return False
 
-        # update the registry
+        # update the registry from old work to new work
         old_work_attribute = self._work_registry[index]
-        self._work_registry[index] = new_work.name  # not sure if correct
+        # new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
+        self._work_registry[index] = new_work.name.split(".")[-1]
+
+        if not new_work.url:
+            return False
 
         # let the load balancer know the new URL
         self.load_balancer.update_servers(self.workers)
@@ -722,6 +730,9 @@ class AutoScaler(LightningFlow):
             self.load_balancer.run()
 
         for work in self.workers:
+            work.run()
+
+        for work in self.background_workers:
             work.run()
 
         if not self.load_balancer.url:

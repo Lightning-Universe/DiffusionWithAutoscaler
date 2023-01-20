@@ -108,28 +108,37 @@ class PreemptibleRollout(Strategy):
         register_work: Callable,
         replace_work: Callable,
     ) -> None:
+        time.sleep(0.2)
         # step 1: collect running works to replace
         for work in serve_works:
             if work.url and work not in self._work_start_tracker:
-                print(f"Tracking the old work {work.name}")
+                print(f"Tracking old work {work.name}")
                 self._work_start_tracker[work] = time.time()
 
         # step 2: ask autoscaler to launch new works to replace old works with later
         for old_work, start_time in self._work_start_tracker.items():
+            print("continue?", self.interval > time.time() - start_time, self.interval, ">", time.time() - start_time)
             if self.interval > time.time() - start_time:
-                print("Skipped registering a new work because interval not reached yet", time.time() - start_time)
                 continue
-            else:
-                print("Registering a new work")
 
             if old_work not in self._old_to_new_work:
+                print("Creating a new work")
                 new_work = create_work()
+                print(f"Registering new work {new_work}")
                 _ = register_work(old_work, new_work)  # autoscaler will launch new_work in the background
                 self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work
                 self._work_start_tracker[old_work] = time.time()
+            else:
+                print(
+                    f"Skipping new work as already created a new work {self._old_to_new_work[old_work].name} for {old_work.name}"
+                )
 
         # step 3: replace old works with new works if new ones are ready
-        for old_work, new_work in self._old_to_new_work.items():
+        items = self._old_to_new_work.items()
+        for old_work, new_work in items:
+            print(f"A pair of {old_work} and {new_work}")
+            if not new_work.url:
+                print("Don't start replacing as new_work.url isn't ready")
             if new_work.url:
                 value = replace_work(old_work, new_work)
                 print(f"Maybe replaced with {old_work} with {new_work} -> value: {value}")
