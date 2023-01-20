@@ -18,22 +18,19 @@ class DiffusionServer(L.app.components.PythonServer):
         )
 
     def setup(self):
-        # cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
-        # os.system(cmd)
-        # device = "cuda" if torch.cuda.is_available() else "cpu"
-        # self._model = ldm.lightning.LightningStableDiffusion(
-        #     config_path="v1-inference.yaml",
-        #     checkpoint_path="v1-5-pruned-emaonly.ckpt",
-        #     device=device,
-        #     fp16=True, # Supported on GPU, skipped otherwise.
-        #     deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
-        #     steps=30,         
-        # )
-        pass
+        cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
+        os.system(cmd)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._model = ldm.lightning.LightningStableDiffusion(
+            config_path="v1-inference.yaml",
+            checkpoint_path="v1-5-pruned-emaonly.ckpt",
+            device=device,
+            fp16=True, # Supported on GPU, skipped otherwise.
+            deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            steps=30,         
+        )
 
     def predict(self, requests):
-        breakpoint()
-        print(requests)
         texts = [request.text for request in requests.inputs]
         images = self._model.predict_step(prompts=texts, batch_idx=0)
         results = []
@@ -58,8 +55,7 @@ component = AutoScaler(
     max_batch_size=6,
     timeout_batching=0.3,
     input_type=Text,
-    output_type=Image,
-    batching="streamed",
+    output_type=Image
 )
 
 app = L.LightningApp(component)
