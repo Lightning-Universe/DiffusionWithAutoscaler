@@ -1,6 +1,6 @@
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 import lightning as L
-from diffusion_with_autoscaler import BatchText, Text, PreemptibleRollout, AutoScaler
+from diffusion_with_autoscaler import BatchText, Text, IntervalReplacement, AutoScaler
 
 
 class MyPythonServer(L.app.components.PythonServer):
@@ -11,8 +11,10 @@ class MyPythonServer(L.app.components.PythonServer):
             *args,
             **kwargs,
         )
+        print(f"Created PythonServer {id(self)}")
 
     def setup(self):
+        print(f"Setting up PythonServer {id(self)}")
         pass
 
     def predict(self, requests):
@@ -23,7 +25,7 @@ class MyPythonServer(L.app.components.PythonServer):
 component = AutoScaler(
     MyPythonServer,
     cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
-    strategy=PreemptibleRollout(interval=7),
+    strategy=IntervalReplacement(interval=7),
     # autoscaler args
     min_replicas=1,
     max_replicas=1,

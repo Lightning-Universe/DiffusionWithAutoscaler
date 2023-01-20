@@ -24,7 +24,7 @@ from lightning.app.utilities.packaging.cloud_compute import CloudCompute
 from lightning.app.utilities.cloud import is_running_in_cloud
 
 from diffusion_with_autoscaler.cold_start_proxy import ColdStartProxy
-from diffusion_with_autoscaler.strategies import Strategy, PreemptibleRollout
+from diffusion_with_autoscaler.strategies import Strategy, IntervalReplacement
 
 if _is_aiohttp_available():
     import aiohttp

@@ -4,7 +4,7 @@
 
 import lightning as L
 import os, base64, io, torch, diffusers, deepspeed
-from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, PreemptibleRollout
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, IntervalReplacement
 
 
 class DiffusionServer(L.app.components.PythonServer):
@@ -21,10 +21,8 @@ class DiffusionServer(L.app.components.PythonServer):
         if not hf_auth_key:
             raise ValueError("HF_AUTH_KEY is not set")
         pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            "CompVis/stable-diffusion-v1-4",
-            use_auth_token=hf_auth_key,
-            torch_dtype=torch.float16,
-            revision="fp16")
+            "CompVis/stable-diffusion-v1-4", use_auth_token=hf_auth_key, torch_dtype=torch.float16, revision="fp16"
+        )
         self._model = deepspeed.init_inference(pipe.to("cuda"), dtype=torch.float16)
 
     def predict(self, requests):
@@ -42,8 +40,7 @@ class DiffusionServer(L.app.components.PythonServer):
 component = AutoScaler(
     DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80, preemptible=True),
-
-    strategy=PreemptibleRollout(interval=60 * 15), # Renew the instance every 15 minutes. 
+    strategy=IntervalReplacement(interval=60 * 15),  # Renew the instance every 15 minutes.
     # autoscaler args
     min_replicas=1,
     max_replicas=1,
@@ -53,7 +50,7 @@ component = AutoScaler(
     max_batch_size=6,
     timeout_batching=0.3,
     input_type=Text,
-    output_type=Image
+    output_type=Image,
 )
 
 app = L.LightningApp(component)
