@@ -132,9 +132,6 @@ class IntervalReplacement(Strategy):
 
         # step 3: replace old works with new works if new ones are ready
         for old_work, new_work in {**self._old_to_new_work}.items():
-            print(f"A pair of {old_work} and {new_work}")
-            if not new_work.url:
-                print("Don't start replacing as new_work.url isn't ready")
             if new_work.url:
                 value = replace_work(old_work, new_work)
                 print(f"Maybe replaced with {old_work} with {new_work} -> value: {value}")
