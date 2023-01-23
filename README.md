@@ -109,15 +109,6 @@ When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffus
 | T4 (gpu) | 1 | 1 | 5061 | - | - |
 | T4 (gpu) | 2 | 2 | 11393 | - | - |
 
-and the following numbers on T4 (gpu).
-
-| Max Batch Size | Number of users (locust)  | Average (ms)  |
-|---|---|---|
-| 1  | 1  | 5061  |
-| 2  | 2  | 11393  | 
-
-
-
 To reproduce those numbers, you can do the following:
 
 1. Run the app in the cloud
