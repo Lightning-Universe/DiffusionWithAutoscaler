@@ -98,14 +98,16 @@ lightning run app app.py --setup --cloud
 
 ### Benchmarking
 
-When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffusion) with DDIM 30 steps, you can expect the followings numbers on GPU A10 (gpu-rxt):
+When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffusion) with DDIM 30 steps, you can expect the followings numbers on https://lightning.ai/:
 
-| Max Batch Size | Number of users (locust)  | Average (ms)  | Min (ms)  | Max (ms)  |
-|---|---|---|---|---|
-| 1  | 1  | 2185  | 2124  | 5030  |
-| 2  | 2  | 4206  | 2139  | 6418  |
-| 4  | 4  | 7524  | 2138  | 10900  |
-| 6  | 6  | 10929  | 2135  | 18494  |
+| Compute Type | Max Batch Size | Number of users (locust)  | Average (ms)  | Min (ms)  | Max (ms)  |
+|---|---|---|---|---|---|
+| A10 (gpu-rtx) | 1  | 1  | 2185  | 2124  | 5030  |
+| A10 (gpu-rtx) | 2  | 2  | 4206  | 2139  | 6418  |
+| A10 (gpu-rtx) | 4  | 4  | 7524  | 2138  | 10900  |
+| A10 (gpu-rtx) | 6  | 6  | 10929  | 2135  | 18494  |
+| T4 (gpu) | 1 | 1 | 5061 | - | - |
+| T4 (gpu) | 2 | 2 | 11393 | - | - |
 
 and the following numbers on T4 (gpu).
 
@@ -115,12 +117,6 @@ and the following numbers on T4 (gpu).
 | 2  | 2  | 11393  | 
 
 
-and the following numbers on T4 (gpu):
-
-| Max Batch Size | Number of users (locust)  | Average (ms)  |
-|---|---|---|
-| 1  | 1  | 5061  |
-| 2  | 2  | 11393  | 
 
 To reproduce those numbers, you can do the following:
 
