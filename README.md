@@ -88,7 +88,7 @@ lightning run app app.py --setup --cloud
 
 ### Benchmarking
 
-When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffusion) with DDIM 30 steps, you can expect the followings numbers on LAI platform:
+When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffusion) with DDIM 30 steps, you can expect the followings numbers on https://lightning.ai/:
 
 | Compute Type | Max Batch Size | Number of users (locust)  | Average (ms)  | Min (ms)  | Max (ms)  |
 |---|---|---|---|---|---|
