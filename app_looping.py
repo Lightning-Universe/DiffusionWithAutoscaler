@@ -1,13 +1,8 @@
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
-import asyncio
-import uuid
-import io
-import os
-import base64
-from diffusion_with_autoscaler import BatchText, BatchImage, Image, Text, AutoScaler
-import traceback
+import os, base64, io, torch, traceback, asyncio
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, CustomColdStartProxy
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
@@ -16,7 +11,10 @@ class FlashAttentionBuildConfig(L.BuildConfig):
     image = "ghcr.io/gridai/lightning-stable-diffusion:v0.4"
 
     def build_commands(self):
-        return ["pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"]
+        return [
+            "pip install 'git+https://github.com/Lightning-AI/lightning.git@add_preemptible'",
+            "pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"
+        ]
 
 
 class DiffusionServer(L.app.components.PythonServer):
@@ -37,7 +35,7 @@ class DiffusionServer(L.app.components.PythonServer):
         if not os.path.exists("v1-5-pruned-emaonly.ckpt"):
             cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
             os.system(cmd)
-        import ldm, torch
+        import ldm
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self._model = ldm.lightning.LightningStableDiffusion(
             config_path="v1-inference.yaml",
