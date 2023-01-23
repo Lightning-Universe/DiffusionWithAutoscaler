@@ -6,7 +6,7 @@ import time
 import uuid
 from itertools import cycle
 from typing import Any, Dict, List, Tuple, Type, Optional, Union, Literal
-
+import traceback
 import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -162,7 +162,7 @@ class _LoadBalancer(LightningWork):
             batching: Literal["streamed", "grouped"] = "grouped",
             **kwargs: Any,
     ) -> None:
-        super().__init__(cloud_compute=CloudCompute("default"), port=6001, **kwargs)
+        super().__init__(cloud_compute=CloudCompute("default"), **kwargs)
         self._input_type = input_type
         self._output_type = output_type
         self._timeout_keep_alive = timeout_keep_alive
@@ -234,6 +234,7 @@ class _LoadBalancer(LightningWork):
             if server_url in self._server_status:
                 async with self._lock:
                     if self.batching == "streamed":
+                        # decrement the number of currently processed requests.
                         self._server_status[server_url] -= 1
                     else:
                         # TODO - if the server returns an error, track that so
@@ -247,7 +248,8 @@ class _LoadBalancer(LightningWork):
             if self.batching == "streamed":
                 if status is None:
                     logger.error("Server is not found in the status list. This should not happen.")
-                if status <= self.max_batch_size:
+                # Return server only if the status is strictly lower than the total number of requests.
+                if status < self.max_batch_size:
                     return server
             else:
                 if status is None:
@@ -256,7 +258,7 @@ class _LoadBalancer(LightningWork):
                     return server
 
     async def consumer(self):
-        """The consumer process that streamedly checks for new requests and sends them to the API.
+        """The consumer process that continuously checks for new requests and sends them to the API.
 
         Two instances of this function should not be running with shared `_state_server` as that would create race
         conditions
@@ -303,8 +305,8 @@ class _LoadBalancer(LightningWork):
                     # resetting the batch array, TODO - not locking the array
                     self._batch = self._batch[len(batch) :]
                     self._last_batch_sent = time.time()
-        except Exception as e:
-            print(e)
+        except Exception:
+            print(traceback.print_exc())
 
     async def process_request(self, data: BaseModel, request_id=None):
         if request_id is None:
