@@ -232,16 +232,15 @@ class _LoadBalancer(LightningWork):
             self._responses.update(result)
         finally:
             if server_url in self._server_status:
-                async with self._lock:
-                    if self.batching == "streamed":
-                        # decrement the number of currently processed requests.
-                        self._server_status[server_url] -= 1
-                        if self._server_status[server_url] < 0:
-                            raise Exception("The server status shouldn't go below 0.")
-                    else:
-                        # TODO - if the server returns an error, track that so
-                        #  we don't send more requests to it
-                        self._server_status[server_url] = True
+                if self.batching == "streamed":
+                    # decrement the number of currently processed requests.
+                    self._server_status[server_url] -= 1
+                    if self._server_status[server_url] < 0:
+                        raise Exception("The server status shouldn't go below 0.")
+                else:
+                    # TODO - if the server returns an error, track that so
+                    #  we don't send more requests to it
+                    self._server_status[server_url] = True
 
     def _find_free_server(self) -> Optional[str]:
         existing = set(self._server_status.keys())
@@ -282,8 +281,7 @@ class _LoadBalancer(LightningWork):
                 else:
                     is_batch_timeout = False
 
-                async with self._lock:
-                    server_url = self._find_free_server()
+                server_url = self._find_free_server()
                 # setting the server status to be busy! This will be reset by
                 # the send_batch function after the server responds
                 if server_url is None:
@@ -291,16 +289,14 @@ class _LoadBalancer(LightningWork):
 
                 if self.batching == 'grouped':
                     if batch and (is_batch_ready or is_batch_timeout):
-                        async with self._lock:
-                            self._server_status[server_url] = False
+                        self._server_status[server_url] = False
                         # find server with capacity
                         asyncio.create_task(self.send_batch(batch, server_url))
                         # resetting the batch array, TODO - not locking the array
                         self._batch = self._batch[len(batch) :]
                         self._last_batch_sent = time.time()
                 else:
-                    async with self._lock:
-                        self._server_status[server_url] += 1
+                    self._server_status[server_url] += 1
 
                     # find server with capacity
                     asyncio.create_task(self.send_batch(batch, server_url))
