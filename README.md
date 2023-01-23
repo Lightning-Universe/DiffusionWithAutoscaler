@@ -88,7 +88,7 @@ lightning run app app.py --setup --cloud
 
 ### Benchmarking
 
-When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffusion) with DDIM 30 steps, you can expect the followings numbers on GPU A10 (gpu-rxt).
+When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffusion) with DDIM 30 steps, you can expect the followings numbers on GPU A10 (gpu-rxt):
 
 | Max Batch Size | Number of users (locust)  | Average (ms)  | Min (ms)  | Max (ms)  |
 |---|---|---|---|---|
@@ -97,6 +97,13 @@ When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffus
 | 4  | 4  | 7524  | 2138  | 10900  |
 | 6  | 6  | 10929  | 2135  | 18494  |
 
+
+and the following numbers on T4 (gpu):
+
+| Max Batch Size | Number of users (locust)  | Average (ms)  |
+|---|---|---|
+| 1  | 1  | 5061  |
+| 2  | 2  | 11393  | 
 
 To reproduce those numbers, you can do the following:
 
