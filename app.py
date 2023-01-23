@@ -8,8 +8,6 @@ PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/p
 
 class FlashAttentionBuildConfig(L.BuildConfig):
 
-    image = "ghcr.io/gridai/lightning-stable-diffusion:v0.2"
-
     def build_commands(self):
         return ["pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"]
 
@@ -62,7 +60,7 @@ component = AutoScaler(
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=600,
-    max_batch_size=2,
+    max_batch_size=3,
     timeout_batching=0.3,
     input_type=Text,
     output_type=Image,

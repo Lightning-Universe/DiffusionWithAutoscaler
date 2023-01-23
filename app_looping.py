@@ -34,7 +34,7 @@ class DiffusionServer(L.app.components.PythonServer):
             fp16=True, # Supported on GPU, skipped otherwise.
             deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
-            flash_attention="triton",
+            flash_attention="hazy",
             steps=30,         
         )
 
@@ -109,7 +109,7 @@ component = AutoScaler(
     scale_out_interval=0,
     scale_in_interval=600,
     max_batch_size=6,
-    timeout_batching=0.3,
+    timeout_batching=0,
     input_type=Text,
     output_type=Image,
     batching="streamed",

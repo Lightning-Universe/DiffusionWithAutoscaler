@@ -236,6 +236,8 @@ class _LoadBalancer(LightningWork):
                     if self.batching == "streamed":
                         # decrement the number of currently processed requests.
                         self._server_status[server_url] -= 1
+                        if self._server_status[server_url] < 0:
+                            raise Exception("The server status shouldn't go below 0.")
                     else:
                         # TODO - if the server returns an error, track that so
                         #  we don't send more requests to it
@@ -265,7 +267,7 @@ class _LoadBalancer(LightningWork):
         """
         try:
             while True:
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.001)
                 batch = self._batch[: self.max_batch_size if self.batching == 'grouped' else 1]
 
                 if not batch:
@@ -327,7 +329,7 @@ class _LoadBalancer(LightningWork):
         # if we have capacity, process the request
         self._batch.append((request_id, data))
         while True:
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.001)
             if request_id in self._responses:
                 result = self._responses[request_id]
                 del self._responses[request_id]
