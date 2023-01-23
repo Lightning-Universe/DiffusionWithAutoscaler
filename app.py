@@ -2,7 +2,7 @@
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
 import os, base64, io, torch
-from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, CustomColdStartProxy
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
@@ -65,7 +65,8 @@ component = AutoScaler(
     max_batch_size=2,
     timeout_batching=0.3,
     input_type=Text,
-    output_type=Image
+    output_type=Image,
+    cold_start_proxy=CustomColdStartProxy(proxy_url=PROXY_URL),
 )
 
 app = L.LightningApp(component)
