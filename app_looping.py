@@ -13,7 +13,7 @@ PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/p
 
 class FlashAttentionBuildConfig(L.BuildConfig):
 
-    image = "ghcr.io/gridai/lightning-stable-diffusion:v0.2"
+    image = "ghcr.io/gridai/lightning-stable-diffusion:v0.4"
 
     def build_commands(self):
         return ["pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"]
