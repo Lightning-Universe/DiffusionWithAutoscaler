@@ -2,10 +2,15 @@
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
-import os, base64, io, ldm, torch
+import os, base64, io, torch
 from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
+
+class FlashAttentionBuildConfig(L.BuildConfig):
+
+    def build_commands(self):
+        return ["pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@add_while_looping'"]
 
 
 class DiffusionServer(L.app.components.PythonServer):
@@ -13,21 +18,25 @@ class DiffusionServer(L.app.components.PythonServer):
         super().__init__(
             input_type=BatchText,
             output_type=BatchImage,
+            cloud_build_config=FlashAttentionBuildConfig(),
             *args,
             **kwargs,
         )
 
     def setup(self):
-        cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
-        os.system(cmd)
+        import ldm
+        if not os.path.exists("v1-5-pruned-emaonly.ckpt"):
+            cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
+            os.system(cmd)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self._model = ldm.lightning.LightningStableDiffusion(
             config_path="v1-inference.yaml",
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
-            fp16=True, # Supported on GPU, skipped otherwise.
-            use_deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
-            steps=30,         
+            deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            context="no_grad",
+            flash_attention="hazy",
+            steps=30,  
         )
 
     def predict(self, requests):
