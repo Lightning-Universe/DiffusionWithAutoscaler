@@ -53,7 +53,7 @@ class DiffusionServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     DiffusionServer,  # The component to scale
-    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
+    cloud_compute=L.CloudCompute("gpu", disk_size=80),
 
     # autoscaler args
     min_replicas=1,
@@ -61,7 +61,7 @@ component = AutoScaler(
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=600,
-    max_batch_size=6,
+    max_batch_size=2,
     timeout_batching=0.3,
     input_type=Text,
     output_type=Image
