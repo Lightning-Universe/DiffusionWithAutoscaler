@@ -1,28 +1,18 @@
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
+# !pip install 'git+https://github.com/Lightning-AI/lightning.git@add_preemptible'
+# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 import lightning as L
 import os, base64, io, torch, traceback, asyncio, uuid
 from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, CustomColdStartProxy
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
-class FlashAttentionBuildConfig(L.BuildConfig):
-
-    image = "ghcr.io/gridai/lightning-stable-diffusion:v0.4"
-
-    def build_commands(self):
-        return [
-            "pip install 'git+https://github.com/Lightning-AI/lightning.git@add_preemptible'",
-            "pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"
-        ]
-
-
 class DiffusionServer(L.app.components.PythonServer):
     def __init__(self, *args, **kwargs):
         super().__init__(
             input_type=BatchText,
             output_type=BatchImage,
-            cloud_build_config=FlashAttentionBuildConfig(),
             *args,
             **kwargs,
         )
@@ -44,7 +34,7 @@ class DiffusionServer(L.app.components.PythonServer):
             fp16=True, # Supported on GPU, skipped otherwise.
             deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
-            flash_attention="hazy",
+            flash_attention="triton",
             steps=30,         
         )
 
@@ -81,10 +71,11 @@ class DiffusionServer(L.app.components.PythonServer):
                         self._requests['global_state'] = {"state": state}
                     else:
                         self._requests[key]['state'] = state
-
-                for key in results:
-                    self._requests[key]['response'].set_result(self.sanetize_results(results[key]))
-                    del self._requests[key]
+                
+                if results:
+                    for key in results:
+                        self._requests[key]['response'].set_result(self.sanetize_results(results[key]))
+                        del self._requests[key]
 
                 await asyncio.sleep(0.001)
         except Exception:
@@ -109,7 +100,7 @@ class DiffusionServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     DiffusionServer,  # The component to scale
-    cloud_compute=L.CloudCompute("gpu", disk_size=80),
+    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
 
     # autoscaler args
     min_replicas=1,

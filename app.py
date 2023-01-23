@@ -36,7 +36,7 @@ class DiffusionServer(L.app.components.PythonServer):
             device=device,
             deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
-            flash_attention="hazy",
+            flash_attention="triton",
             steps=30,  
         )
 
@@ -54,7 +54,7 @@ class DiffusionServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     DiffusionServer,  # The component to scale
-    cloud_compute=L.CloudCompute("gpu", disk_size=80),
+    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
 
     # autoscaler args
     min_replicas=1,
