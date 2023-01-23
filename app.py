@@ -1,4 +1,3 @@
-# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
@@ -10,7 +9,7 @@ PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/p
 class FlashAttentionBuildConfig(L.BuildConfig):
 
     def build_commands(self):
-        return ["pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"]
+        return ["pip install flash-attn 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"]
 
 
 class DiffusionServer(L.app.components.PythonServer):
