@@ -1,23 +1,29 @@
-# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
-import os, base64, io, ldm, torch
+import os, base64, io, torch
 from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
+
+class FlashAttentionBuildConfig(L.BuildConfig):
+
+    def build_commands(self):
+        return ["pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@add_while_looping'"]
 
 class DiffusionServer(L.app.components.PythonServer):
     def __init__(self, *args, **kwargs):
         super().__init__(
             input_type=BatchText,
             output_type=BatchImage,
+            cloud_build_config=FlashAttentionBuildConfig(),
             *args,
             **kwargs,
         )
 
     def setup(self):
+        import ldm
         if not os.path.exists("v1-5-pruned-emaonly.ckpt"):
             cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
             os.system(cmd)
@@ -56,8 +62,8 @@ component = AutoScaler(
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=600,
-    max_batch_size=2,
-    timeout_batching=0.3,
+    max_batch_size=1,
+    timeout_batching=0,
     input_type=Text,
     output_type=Image
 )
