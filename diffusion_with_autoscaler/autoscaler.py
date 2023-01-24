@@ -5,14 +5,8 @@ import queue
 import time
 import uuid
 from itertools import cycle
-<<<<<<< HEAD
-from typing import Any, Dict, List, Tuple, Type, Optional, Union
-from deepdiff import DeepHash
-
-=======
 from typing import Any, Dict, List, Tuple, Type, Optional, Union, Literal
 import traceback
->>>>>>> main
 import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -156,7 +150,6 @@ class _LoadBalancer(LightningWork):
 
     @requires(["aiohttp"])
     def __init__(
-<<<<<<< HEAD
         self,
         input_type: Type[BaseModel],
         output_type: Type[BaseModel],
@@ -168,22 +161,8 @@ class _LoadBalancer(LightningWork):
         timeout_inference_request: int = 60,
         api_name: Optional[str] = "API",  # used for displaying the name in the UI
         cold_start_proxy: Union[ColdStartProxy, str, None] = None,
+        batching: Literal["streamed", "grouped"] = "grouped",
         **kwargs: Any,
-=======
-            self,
-            input_type: Type[BaseModel],
-            output_type: Type[BaseModel],
-            endpoint: str,
-            max_batch_size: int = 8,
-            # all timeout args are in seconds
-            timeout_batching: float = 1,
-            timeout_keep_alive: int = 60,
-            timeout_inference_request: int = 60,
-            api_name: Optional[str] = "API",  # used for displaying the name in the UI
-            cold_start_proxy: Union[ColdStartProxy, str, None] = None,
-            batching: Literal["streamed", "grouped"] = "grouped",
-            **kwargs: Any,
->>>>>>> main
     ) -> None:
         super().__init__(cloud_compute=CloudCompute("default"), **kwargs)
         self._input_type = input_type

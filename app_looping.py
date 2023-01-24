@@ -4,16 +4,14 @@
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 import lightning as L
 import os, base64, io, torch, traceback, asyncio, uuid
-from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, CustomColdStartProxy
+from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, IntervalReplacement
 
-PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
 class DiffusionServer(L.app.components.PythonServer):
     def __init__(self, *args, **kwargs):
         super().__init__(
             input_type=BatchText,
             output_type=BatchImage,
-            cloud_build_config=L.BuildConfig(requirements=['flash-attn']),
             *args,
             **kwargs,
         )
@@ -35,7 +33,7 @@ class DiffusionServer(L.app.components.PythonServer):
             fp16=True, # Supported on GPU, skipped otherwise.
             deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
-            flash_attention="hazy",
+            flash_attention="triton",
             steps=30,         
         )
 
@@ -97,7 +95,9 @@ class DiffusionServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     DiffusionServer,  # The component to scale
-    cloud_compute=L.CloudCompute("gpu", disk_size=80),
+    cloud_compute=L.CloudCompute("gpu-rtx", preemptible=True, disk_size=80),
+    strategy=IntervalReplacement(interval=30),
+    batching="streamed",
 
     # autoscaler args
     min_replicas=1,
@@ -109,7 +109,6 @@ component = AutoScaler(
     timeout_batching=0,
     input_type=Text,
     output_type=Image,
-    batching="streamed",
 )
 # component = DiffusionServer()
 app = L.LightningApp(component)
