@@ -7,7 +7,7 @@ To get started, save this code snippet as `app.py` and run the below at the end 
 
 ```python
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
-# !"pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"
+# !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
 import os, base64, io, torch, ldm
