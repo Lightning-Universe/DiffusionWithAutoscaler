@@ -5,9 +5,14 @@ import queue
 import time
 import uuid
 from itertools import cycle
+<<<<<<< HEAD
 from typing import Any, Dict, List, Tuple, Type, Optional, Union
 from deepdiff import DeepHash
 
+=======
+from typing import Any, Dict, List, Tuple, Type, Optional, Union, Literal
+import traceback
+>>>>>>> main
 import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -151,6 +156,7 @@ class _LoadBalancer(LightningWork):
 
     @requires(["aiohttp"])
     def __init__(
+<<<<<<< HEAD
         self,
         input_type: Type[BaseModel],
         output_type: Type[BaseModel],
@@ -163,6 +169,21 @@ class _LoadBalancer(LightningWork):
         api_name: Optional[str] = "API",  # used for displaying the name in the UI
         cold_start_proxy: Union[ColdStartProxy, str, None] = None,
         **kwargs: Any,
+=======
+            self,
+            input_type: Type[BaseModel],
+            output_type: Type[BaseModel],
+            endpoint: str,
+            max_batch_size: int = 8,
+            # all timeout args are in seconds
+            timeout_batching: float = 1,
+            timeout_keep_alive: int = 60,
+            timeout_inference_request: int = 60,
+            api_name: Optional[str] = "API",  # used for displaying the name in the UI
+            cold_start_proxy: Union[ColdStartProxy, str, None] = None,
+            batching: Literal["streamed", "grouped"] = "grouped",
+            **kwargs: Any,
+>>>>>>> main
     ) -> None:
         super().__init__(cloud_compute=CloudCompute("default"), **kwargs)
         self._input_type = input_type
@@ -172,6 +193,7 @@ class _LoadBalancer(LightningWork):
         self.servers = []
         self.max_batch_size = max_batch_size
         self.timeout_batching = timeout_batching
+        self.batching = batching
         self._iter = None
         self._batch = []
         self._responses = {}  # {request_id: response}
@@ -179,6 +201,7 @@ class _LoadBalancer(LightningWork):
         self._server_status = {}
         self._api_name = api_name
         self.ready = False
+        self._lock = None
 
         if not endpoint.startswith("/"):
             endpoint = "/" + endpoint
@@ -205,13 +228,11 @@ class _LoadBalancer(LightningWork):
         batch_request_data = _BatchRequestModel(inputs=request_data)
 
         try:
-            self._server_status[server_url] = False
             async with aiohttp.ClientSession() as session:
                 headers = {
                     "accept": "application/json",
                     "Content-Type": "application/json",
                 }
-                t2 = time.time()
                 async with session.post(
                     f"{server_url}{self.endpoint}",
                     json=batch_request_data.dict(),
@@ -234,18 +255,31 @@ class _LoadBalancer(LightningWork):
             self._responses.update(result)
         finally:
             if server_url in self._server_status:
-                # TODO - if the server returns an error, track that so
-                #  we don't send more requests to it
-                self._server_status[server_url] = True
+                if self.batching == "streamed":
+                    # decrement the number of currently processed requests.
+                    self._server_status[server_url] -= 1
+                    if self._server_status[server_url] < 0:
+                        raise Exception("The server status shouldn't go below 0.")
+                else:
+                    # TODO - if the server returns an error, track that so
+                    #  we don't send more requests to it
+                    self._server_status[server_url] = True
 
     def _find_free_server(self) -> Optional[str]:
         existing = set(self._server_status.keys())
         for server in existing:
             status = self._server_status.get(server, None)
-            if status is None:
-                logger.error("Server is not found in the status list. This should not happen.")
-            if status:
-                return server
+            if self.batching == "streamed":
+                if status is None:
+                    logger.error("Server is not found in the status list. This should not happen.")
+                # Return server only if the status is strictly lower than the total number of requests.
+                if status < self.max_batch_size:
+                    return server
+            else:
+                if status is None:
+                    logger.error("Server is not found in the status list. This should not happen.")
+                if status:
+                    return server
 
     async def consumer(self):
         """The consumer process that continuously checks for new requests and sends them to the API.
@@ -253,30 +287,47 @@ class _LoadBalancer(LightningWork):
         Two instances of this function should not be running with shared `_state_server` as that would create race
         conditions
         """
-        while True:
-            await asyncio.sleep(0.05)
-            batch = self._batch[: self.max_batch_size]
-            is_batch_ready = len(batch) == self.max_batch_size
-            if len(batch) > 0 and self._last_batch_sent is None:
-                self._last_batch_sent = time.time()
+        try:
+            while True:
+                await asyncio.sleep(0.001)
+                batch = self._batch[: self.max_batch_size if self.batching == 'grouped' else 1]
 
-            if self._last_batch_sent:
-                is_batch_timeout = time.time() - self._last_batch_sent > self.timeout_batching
-            else:
-                is_batch_timeout = False
+                if not batch:
+                    continue
 
-            server_url = self._find_free_server()
-            # setting the server status to be busy! This will be reset by
-            # the send_batch function after the server responds
-            if server_url is None:
-                continue
-            if batch and (is_batch_ready or is_batch_timeout):
-                self._server_status[server_url] = False
-                # find server with capacity
-                asyncio.create_task(self.send_batch(batch, server_url))
-                # resetting the batch array, TODO - not locking the array
-                self._batch = self._batch[len(batch) :]
-                self._last_batch_sent = time.time()
+                is_batch_ready = len(batch) == self.max_batch_size
+                if len(batch) > 0 and self._last_batch_sent is None:
+                    self._last_batch_sent = time.time()
+
+                if self._last_batch_sent:
+                    is_batch_timeout = time.time() - self._last_batch_sent > self.timeout_batching
+                else:
+                    is_batch_timeout = False
+
+                server_url = self._find_free_server()
+                # setting the server status to be busy! This will be reset by
+                # the send_batch function after the server responds
+                if server_url is None:
+                    continue
+
+                if self.batching == 'grouped':
+                    if batch and (is_batch_ready or is_batch_timeout):
+                        self._server_status[server_url] = False
+                        # find server with capacity
+                        asyncio.create_task(self.send_batch(batch, server_url))
+                        # resetting the batch array, TODO - not locking the array
+                        self._batch = self._batch[len(batch) :]
+                        self._last_batch_sent = time.time()
+                else:
+                    self._server_status[server_url] += 1
+
+                    # find server with capacity
+                    asyncio.create_task(self.send_batch(batch, server_url))
+                    # resetting the batch array, TODO - not locking the array
+                    self._batch = self._batch[len(batch) :]
+                    self._last_batch_sent = time.time()
+        except Exception:
+            print(traceback.print_exc())
 
     async def process_request(self, data: BaseModel, request_id=None):
         if request_id is None:
@@ -297,7 +348,7 @@ class _LoadBalancer(LightningWork):
         # if we have capacity, process the request
         self._batch.append((request_id, data))
         while True:
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.001)
             if request_id in self._responses:
                 result = self._responses[request_id]
                 del self._responses[request_id]
@@ -320,6 +371,7 @@ class _LoadBalancer(LightningWork):
         logger.info(f"servers: {self.servers}")
 
         self._iter = cycle(self.servers)
+        self._lock = asyncio.Lock()
 
         fastapi_app = _create_fastapi("Load Balancer")
         fastapi_app.SEND_TASK = None
@@ -368,7 +420,10 @@ class _LoadBalancer(LightningWork):
             for server in servers:
                 updated_servers.add(server)
                 if server not in existing_servers:
-                    self._server_status[server] = True
+                    if self.batching == "grouped":
+                        self._server_status[server] = True
+                    else:
+                        self._server_status[server] = 0
                     print(f"total servers {len(self._server_status)}")
             for existing in existing_servers:
                 if existing not in updated_servers:
@@ -575,6 +630,7 @@ class AutoScaler(LightningFlow):
         output_type: Type[BaseModel] = Dict,
         cold_start_proxy: Union[ColdStartProxy, str, None] = None,
         strategy: Optional[Strategy] = None,
+        batching: Literal["streamed", "grouped"] = "grouped",
         *work_args: Any,
         **work_kwargs: Any,
     ) -> None:
@@ -615,6 +671,7 @@ class AutoScaler(LightningFlow):
             parallel=True,
             api_name=self._work_cls.__name__,
             cold_start_proxy=cold_start_proxy,
+            batching=batching,
         )
 
     @property
