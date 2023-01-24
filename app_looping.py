@@ -13,6 +13,7 @@ class DiffusionServer(L.app.components.PythonServer):
         super().__init__(
             input_type=BatchText,
             output_type=BatchImage,
+            cloud_build_config=L.BuildConfig(requirements=['flash-attn']),
             *args,
             **kwargs,
         )
@@ -96,7 +97,7 @@ class DiffusionServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     DiffusionServer,  # The component to scale
-    cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80),
+    cloud_compute=L.CloudCompute("gpu", disk_size=80),
 
     # autoscaler args
     min_replicas=1,
