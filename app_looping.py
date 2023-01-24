@@ -60,7 +60,7 @@ class DiffusionServer(L.app.components.PythonServer):
                     keys = list(self._requests)
 
                 if len(keys) == 0:
-                    await asyncio.sleep(0.001)
+                    await asyncio.sleep(0.0001)
                     continue
                 
                 inputs = {key: self.sanetize_data(self._requests[key]) for key in keys}
@@ -77,25 +77,21 @@ class DiffusionServer(L.app.components.PythonServer):
                         self._requests[key]['response'].set_result(self.sanetize_results(results[key]))
                         del self._requests[key]
 
-                await asyncio.sleep(0.001)
+                await asyncio.sleep(0.0001)
         except Exception:
             print(traceback.print_exc())
 
     async def predict(self, request: BatchText):
-        print(request)
-        try:
-            if self._lock is None:
-                self._lock = asyncio.Lock()
-            if self._predictor_task is None:
-                self._predictor_task = asyncio.create_task(self.predict_fn())
-            assert len(request.inputs) == 1
-            future = asyncio.Future()
-            async with self._lock:
-                self._requests[uuid.uuid4().hex] = {"data": request.inputs[0], "response": future}
-            result = await future
-            return result
-        except Exception:
-            print(traceback.print_exc())
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        if self._predictor_task is None:
+            self._predictor_task = asyncio.create_task(self.predict_fn())
+        assert len(request.inputs) == 1
+        future = asyncio.Future()
+        async with self._lock:
+            self._requests[uuid.uuid4().hex] = {"data": request.inputs[0], "response": future}
+        result = await future
+        return result
 
 
 component = AutoScaler(
