@@ -89,7 +89,7 @@ class Strategy(abc.ABC, LightningFlow):
 class IntervalReplacement(Strategy):
     def __init__(self, interval: int = 30 * 60) -> None:
         """
-        This strategy implements a mechanism to automatically replace servers on a scheduled internal
+        This strategy implements a mechanism to automatically replace servers on a scheduled interval
         to continously run on spot instances.
 
         Arguments:
