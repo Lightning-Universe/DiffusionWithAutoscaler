@@ -115,7 +115,7 @@ class IntervalReplacement(Strategy):
 
         # step 2: ask autoscaler to launch new works to replace old works with later
         for old_work, start_time in self._work_start_tracker.items():
-            if self.interval > time.time() - start_time:
+            if (time.time() - start_time) < self.interval:
                 continue
 
             if old_work not in self._old_to_new_work:

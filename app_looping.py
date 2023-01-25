@@ -12,6 +12,7 @@ class DiffusionServer(L.app.components.PythonServer):
         super().__init__(
             input_type=BatchText,
             output_type=BatchImage,
+            cloud_build_config=L.BuildConfig(image="ghcr.io/gridai/lightning-stable-diffusion:v0.4"),
             *args,
             **kwargs,
         )
@@ -33,7 +34,7 @@ class DiffusionServer(L.app.components.PythonServer):
             fp16=True, # Supported on GPU, skipped otherwise.
             deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
-            flash_attention="triton",
+            flash_attention="hazy",
             steps=30,         
         )
 
@@ -96,7 +97,7 @@ class DiffusionServer(L.app.components.PythonServer):
 component = AutoScaler(
     DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu-rtx", preemptible=True, disk_size=80),
-    strategy=IntervalReplacement(interval=30),
+    strategy=IntervalReplacement(interval=30 * 60),
     batching="streamed",
 
     # autoscaler args
