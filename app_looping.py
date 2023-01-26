@@ -96,7 +96,7 @@ class DiffusionServer(L.app.components.PythonServer):
 
 component = AutoScaler(
     DiffusionServer,  # The component to scale
-    cloud_compute=L.CloudCompute("gpu-rtx", preemptible=True, disk_size=80),
+    cloud_compute=L.CloudCompute("gpu-rtx", interruptible=True, disk_size=80),
     strategy=IntervalReplacement(interval=30 * 60),
     batching="streamed",
 
