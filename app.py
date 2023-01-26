@@ -35,7 +35,7 @@ class DiffusionServer(L.app.components.PythonServer):
             deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
             flash_attention="triton",
-            steps=30,  
+            steps=30,
         )
 
     def predict(self, requests):

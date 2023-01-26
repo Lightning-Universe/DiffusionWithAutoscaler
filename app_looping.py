@@ -20,7 +20,7 @@ class DiffusionServer(L.app.components.PythonServer):
         self._requests = {}
         self._predictor_task = None
         self._lock = None
-    
+
     def setup(self):
         if not os.path.exists("v1-5-pruned-emaonly.ckpt"):
             cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
@@ -35,7 +35,7 @@ class DiffusionServer(L.app.components.PythonServer):
             deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
             flash_attention="hazy",
-            steps=30,         
+            steps=30,
         )
 
     def apply_model(self, requests):
@@ -62,7 +62,7 @@ class DiffusionServer(L.app.components.PythonServer):
                 if len(keys) == 0:
                     await asyncio.sleep(0.0001)
                     continue
-                
+
                 inputs = {key: self.sanetize_data(self._requests[key]) for key in keys}
                 results = self.apply_model(inputs)
 
@@ -71,7 +71,7 @@ class DiffusionServer(L.app.components.PythonServer):
                         self._requests['global_state'] = {"state": state}
                     else:
                         self._requests[key]['state'] = state
-                
+
                 if results:
                     for key in results:
                         self._requests[key]['response'].set_result(self.sanetize_results(results[key]))
