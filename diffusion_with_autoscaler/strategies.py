@@ -128,24 +128,14 @@ class IntervalReplacement(Strategy):
                 self._work_start_tracker[old_work] = time.time()
             else:
                 print(
-                    f"Skipping new work as already created a new work {self._old_to_new_work[old_work].name} for {old_work.name}"
+                    f"Skipped creating a new work as already created {self._old_to_new_work[old_work].name}"
+                    f" for the old work {old_work.name}"
                 )
 
         # step 3: replace old works with new works if new ones are ready
         for old_work, new_work in {**self._old_to_new_work}.items():
             if new_work.url:
-                value = replace_work(old_work, new_work)
+                replace_work(old_work, new_work)
                 print(f"Maybe replaced with {old_work} with {new_work} -> value: {value}")
-                # if value is None:
-                #     print("do it again :)")
-                # elif value is True:
-                #     print("replacement succeeded.")
-                # elif value is False:
-                #     print("replacement cancelled.")
-                # else:
-                #     print("replacement unknown status idk")
                 del self._work_start_tracker[old_work]
                 del self._old_to_new_work[old_work]
-
-    def on_after_run(self, serve_works: List[LightningWork], res):
-        pass
