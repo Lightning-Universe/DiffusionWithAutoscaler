@@ -72,6 +72,7 @@ class Strategy(abc.ABC, LightningFlow):
         self,
         serve_works: List[LightningWork],
         create_work: Callable,
+        register_work: Callable,
         replace_work: Callable,
     ) -> Any:
         """Controls the following:
@@ -110,7 +111,7 @@ class IntervalReplacement(Strategy):
         # step 1: collect running works to replace
         for work in serve_works:
             if work.url and work not in self._work_start_tracker:
-                print(f"Tracking old work {work.name}")
+                print(f"Started tracking old work {work.name}")
                 self._work_start_tracker[work] = time.time()
 
         # step 2: ask autoscaler to launch new works to replace old works with later
@@ -119,8 +120,8 @@ class IntervalReplacement(Strategy):
                 continue
 
             if old_work not in self._old_to_new_work:
-                print("Creating a new work")
                 new_work = create_work()
+                print(f"Created a new work {new_work.name}")
                 print(f"Registering new work {new_work}")
                 _ = register_work(old_work, new_work)  # autoscaler will launch new_work in the background
                 self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work

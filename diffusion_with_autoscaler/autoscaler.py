@@ -269,7 +269,7 @@ class _LoadBalancer(LightningWork):
         try:
             while True:
                 await asyncio.sleep(0.001)
-                batch = self._batch[: self.max_batch_size if self.batching == 'grouped' else 1]
+                batch = self._batch[: self.max_batch_size if self.batching == "grouped" else 1]
 
                 if not batch:
                     continue
@@ -289,7 +289,7 @@ class _LoadBalancer(LightningWork):
                 if server_url is None:
                     continue
 
-                if self.batching == 'grouped':
+                if self.batching == "grouped":
                     if batch and (is_batch_ready or is_batch_timeout):
                         self._server_status[server_url] = False
                         # find server with capacity
@@ -625,8 +625,6 @@ class AutoScaler(LightningFlow):
         self._input_type = input_type
         self._output_type = output_type
         self.strategy = strategy
-        self._strategy_has_run = False
-        self._last_res_hash = None
         self.scale_out_interval = scale_out_interval
         self.scale_in_interval = scale_in_interval
         self.max_batch_size = max_batch_size
@@ -663,6 +661,7 @@ class AutoScaler(LightningFlow):
 
     @property
     def background_workers(self) -> Dict[int, LightningWork]:
+        """Workers spinning up or running but not registered to the load balancer."""
         workers = []
         for index, work_attribute in self._background_work_registry.items():
             work = getattr(self, work_attribute)
@@ -691,8 +690,6 @@ class AutoScaler(LightningFlow):
         setattr(self, work_attribute, work)
         self._work_registry[self.num_replicas] = work_attribute
         self.num_replicas += 1
-        print(f"work_attribute: {work_attribute}")
-        print(f"work.name: {work.name}")
         return work_attribute, self.num_replicas
 
     def remove_work(self, index: int) -> str:
@@ -707,7 +704,7 @@ class AutoScaler(LightningFlow):
 
     def get_work_index(self, work) -> int:
         # TODO: improve index retrieval by removing the strong assumption
-        # on the attribute name `root.worker_0_3834a39094a0490182e01f4c6ca3d3af`
+        # on the attribute name e.g. `root.worker_0_3834a39094a0490182e01f4c6ca3d3af`
         _, index, _ = work.name.split("_")
         return int(index)
 
@@ -733,18 +730,22 @@ class AutoScaler(LightningFlow):
         return work
 
     def replace_work(self, old_work: LightningWork, new_work: LightningWork) -> Optional[bool]:
+        """Replaces old_work of self.workers with new_work of self.background_workers."""
         # Note: both works need to be already attached to the autoscaler and running
         assert old_work in self.workers
         assert new_work in self.background_workers
 
         # TODO: remove the constraint of the index of both old/new work having to be the same
-        # The constraint stems from AE heavily relying on index to handle scaling out/in.
+        # The constraint stems from AutoScaler heavily relying on index to handle scaling out/in.
         index = self.get_work_index(old_work)
         assert index == self.get_work_index(new_work)
 
         # if autoscaler has scaled in
         if old_work not in self.workers:
-            print("Existing work was replaced before replacement with a new work completes. Removing the new work.")
+            print(
+                f"The existing old work {old_work.name} was removed before replacement"
+                f" with a new work completes. Removing the new work {new_work.name}."
+            )
             self.remove_work_by_instance(new_work)
             return False
 
@@ -753,7 +754,7 @@ class AutoScaler(LightningFlow):
 
         # update the registry from old work to new work
         self.remove_work_by_instance(old_work)
-        # new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
+        # e.g. new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
         self._work_registry[index] = new_work.name.split(".")[-1]
         del self._background_work_registry[index]
 
