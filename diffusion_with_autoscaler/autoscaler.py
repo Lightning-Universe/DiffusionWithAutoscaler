@@ -730,7 +730,13 @@ class AutoScaler(LightningFlow):
         return work
 
     def replace_work(self, old_work: LightningWork, new_work: LightningWork) -> Optional[bool]:
-        """Replaces old_work of self.workers with new_work of self.background_workers."""
+        """Replaces old_work of self.workers with new_work of self.background_workers.
+
+        Returns:
+            True if replacement succeeds.
+            False if replacement was cancalled.
+            None if replacement is in progress.
+        """
         # Note: both works need to be already attached to the autoscaler and running
         assert old_work in self.workers
         assert new_work in self.background_workers
@@ -750,7 +756,7 @@ class AutoScaler(LightningFlow):
             return False
 
         if not new_work.url:
-            return False
+            return None
 
         # update the registry from old work to new work
         self.remove_work_by_instance(old_work)
