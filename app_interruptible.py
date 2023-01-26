@@ -39,8 +39,8 @@ component = AutoScaler(
     MyPythonServer,
     # cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80, preemptible=True),
     # strategy=IntervalReplacement(interval=5*60),  # replace every 5 minutes
-    cloud_compute=L.CloudCompute("gpu", disk_size=80),  # for debugging
-    strategy=IntervalReplacement(interval=10 * 60),  # for debugging
+    cloud_compute=L.CloudCompute("gpu", interruptible=True, disk_size=80),  # for debugging
+    strategy=IntervalReplacement(interval=30 * 60),  # for debugging
     # autoscaler args
     min_replicas=1,
     max_replicas=1,
