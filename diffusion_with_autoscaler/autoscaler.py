@@ -780,7 +780,7 @@ class AutoScaler(LightningFlow):
             self.strategy.run(
                 self.workers,
                 self.create_work,
-                self.register_work,  # TODO: remove?
+                self.register_work,
                 self.replace_work,
             )
         self.fake_trigger += 1  # Note: change state to keep calling `run`.
