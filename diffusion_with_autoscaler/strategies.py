@@ -80,7 +80,6 @@ class Strategy(abc.ABC, LightningFlow):
         - how to create works, e.g. create_work(weight_path="path/to/new_weights")
         - when to replace old works with new works
         """
-
         pass
 
     def on_after_run(self, serve_works: List[LightningWork], res):
@@ -122,8 +121,8 @@ class IntervalReplacement(Strategy):
             if old_work not in self._old_to_new_work:
                 new_work = create_work()
                 print(f"Created a new work {new_work.name}")
-                print(f"Registering new work {new_work}")
                 _ = register_work(old_work, new_work)  # autoscaler will launch new_work in the background
+                print(f"Registered new work {new_work.name}")
                 self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work
                 self._work_start_tracker[old_work] = time.time()
             else:
