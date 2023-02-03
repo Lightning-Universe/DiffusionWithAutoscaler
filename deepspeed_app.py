@@ -1,4 +1,5 @@
-# !pip install deepspeed==0.7.5 deepspeed-mii==0.0.3 diffusers==0.7.1 transformers==4.24.0 triton==2.0.0.dev20230203
+# !pip install deepspeed==0.7.5 deepspeed-mii==0.0.3 diffusers==0.7.1 transformers==4.24.0
+# !pip install triton==2.0.0.dev20230203 --pre
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !pip install 'git+https://github.com/Lightning-AI/DiffusionWithAutoscaler.git@debugging-deepspeed'
 
