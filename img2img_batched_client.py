@@ -7,8 +7,8 @@ import asyncio
 import requests
 
 
-ENDPOINT = "http://localhost:50177/predict" # local
-ENDPOINT = "https://iqjik-01gmwy9q97ajqnvn96n230c9w5.litng-ai-03.litng.ai/predict" # cloud
+ENDPOINT = "http://localhost:50177/predict"  # local
+ENDPOINT = "https://iqjik-01gmwy9q97ajqnvn96n230c9w5.litng-ai-03.litng.ai/predict"  # cloud
 TEXT = "A fantasy landscape, trending on artstation"
 
 url = "https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg"
@@ -16,7 +16,7 @@ image = requests.get(url).content
 IMAGE = base64.b64encode(image).decode("ascii")
 
 
-async def async_request(counter, sleep = 0):
+async def async_request(counter, sleep=0):
     begin = time.time()
     await asyncio.sleep(sleep)
     print(f"Starting {counter} .. after {sleep}")
@@ -26,7 +26,7 @@ async def async_request(counter, sleep = 0):
             response = await result.json()
             end = time.time()
             print(counter, end - start, end - begin)
-            if "image"in response:
+            if "image" in response:
                 img = response["image"]
                 img = base64.b64decode(img.encode("utf-8"))
                 Path(f"response_{counter}.png").write_bytes(img)

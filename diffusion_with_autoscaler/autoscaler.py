@@ -33,6 +33,7 @@ logger = Logger(__name__)
 
 class TrackableFastAPI(FastAPI):
     """A FastAPI subclass that tracks the request metadata"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.global_request_count = 0
@@ -56,13 +57,13 @@ class RequestProcessor:
                 self._batch.append(request)
             except queue.Empty:
                 pass
-            batch = self._batch[:self._max_batch_size]
+            batch = self._batch[: self._max_batch_size]
             is_batch_ready = len(batch) == self.max_batch_size
             is_batch_timeout = time.time() - self._last_batch_sent > self.timeout_batching
             if batch and (is_batch_ready or is_batch_timeout):
                 asyncio.create_task(self.send_batch(batch))
                 # resetting the batch array, TODO - not locking the array
-                self._batch = self._batch[len(batch):]
+                self._batch = self._batch[len(batch) :]
                 self._last_batch_sent = time.time()
 
 
@@ -148,19 +149,19 @@ class _LoadBalancer(LightningWork):
 
     @requires(["aiohttp"])
     def __init__(
-            self,
-            input_type: Type[BaseModel],
-            output_type: Type[BaseModel],
-            endpoint: str,
-            max_batch_size: int = 8,
-            # all timeout args are in seconds
-            timeout_batching: float = 1,
-            timeout_keep_alive: int = 60,
-            timeout_inference_request: int = 60,
-            api_name: Optional[str] = "API",  # used for displaying the name in the UI
-            cold_start_proxy: Union[ColdStartProxy, str, None] = None,
-            batching: Literal["streamed", "grouped"] = "grouped",
-            **kwargs: Any,
+        self,
+        input_type: Type[BaseModel],
+        output_type: Type[BaseModel],
+        endpoint: str,
+        max_batch_size: int = 8,
+        # all timeout args are in seconds
+        timeout_batching: float = 1,
+        timeout_keep_alive: int = 60,
+        timeout_inference_request: int = 60,
+        api_name: Optional[str] = "API",  # used for displaying the name in the UI
+        cold_start_proxy: Union[ColdStartProxy, str, None] = None,
+        batching: Literal["streamed", "grouped"] = "grouped",
+        **kwargs: Any,
     ) -> None:
         super().__init__(cloud_compute=CloudCompute("default"), **kwargs)
         self._input_type = input_type
@@ -211,10 +212,10 @@ class _LoadBalancer(LightningWork):
                     "Content-Type": "application/json",
                 }
                 async with session.post(
-                        f"{server_url}{self.endpoint}",
-                        json=batch_request_data.dict(),
-                        timeout=self._timeout_inference_request,
-                        headers=headers,
+                    f"{server_url}{self.endpoint}",
+                    json=batch_request_data.dict(),
+                    timeout=self._timeout_inference_request,
+                    headers=headers,
                 ) as response:
                     # resetting the server status so other requests can be
                     # scheduled on this node
@@ -267,7 +268,7 @@ class _LoadBalancer(LightningWork):
         try:
             while True:
                 await asyncio.sleep(0.001)
-                batch = self._batch[: self.max_batch_size if self.batching == 'grouped' else 1]
+                batch = self._batch[: self.max_batch_size if self.batching == "grouped" else 1]
 
                 if not batch:
                     continue
@@ -287,7 +288,7 @@ class _LoadBalancer(LightningWork):
                 if server_url is None:
                     continue
 
-                if self.batching == 'grouped':
+                if self.batching == "grouped":
                     if batch and (is_batch_ready or is_batch_timeout):
                         self._server_status[server_url] = False
                         # find server with capacity
@@ -436,9 +437,7 @@ class _LoadBalancer(LightningWork):
         old_server_urls = set(self.servers)
         # TODO _internal_ip should populate right value when running outside k8s or on a different cluster
         current_server_urls = {
-            f"http://{server._internal_ip}:{server.port}"
-            for server in server_works
-            if server._internal_ip
+            f"http://{server._internal_ip}:{server.port}" for server in server_works if server._internal_ip
         }
 
         # doing nothing if no server work has been added/removed
@@ -596,21 +595,21 @@ class AutoScaler(LightningFlow):
     """
 
     def __init__(
-            self,
-            work_cls: Type[LightningWork],
-            min_replicas: int = 1,
-            max_replicas: int = 4,
-            scale_out_interval: int = 10,
-            scale_in_interval: int = 10,
-            max_batch_size: int = 8,
-            timeout_batching: float = 1,
-            endpoint: str = "api/predict",
-            input_type: Type[BaseModel] = Dict,
-            output_type: Type[BaseModel] = Dict,
-            cold_start_proxy: Union[ColdStartProxy, str, None] = None,
-            batching: Literal["streamed", "grouped"] = "grouped",
-            *work_args: Any,
-            **work_kwargs: Any,
+        self,
+        work_cls: Type[LightningWork],
+        min_replicas: int = 1,
+        max_replicas: int = 4,
+        scale_out_interval: int = 10,
+        scale_in_interval: int = 10,
+        max_batch_size: int = 8,
+        timeout_batching: float = 1,
+        endpoint: str = "api/predict",
+        input_type: Type[BaseModel] = Dict,
+        output_type: Type[BaseModel] = Dict,
+        cold_start_proxy: Union[ColdStartProxy, str, None] = None,
+        batching: Literal["streamed", "grouped"] = "grouped",
+        *work_args: Any,
+        **work_kwargs: Any,
     ) -> None:
         super().__init__()
         self.num_replicas = 0

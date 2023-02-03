@@ -51,7 +51,6 @@ class Img2ImgDiffusionServer(L.app.components.PythonServer):
 component = AutoScaler(
     Img2ImgDiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu", disk_size=80),
-
     # autoscaler args
     min_replicas=1,
     max_replicas=3,
