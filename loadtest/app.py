@@ -1,8 +1,8 @@
+import subprocess
 from pathlib import Path
 from typing import Optional
-import subprocess
 
-from lightning.app import LightningFlow, LightningApp, LightningWork
+from lightning.app import LightningApp, LightningFlow, LightningWork
 
 
 class LocustWork(LightningWork):

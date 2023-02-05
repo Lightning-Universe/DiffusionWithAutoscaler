@@ -1,9 +1,9 @@
 import base64
-from typing import Optional, Dict, Any, List
+from textwrap import dedent
+from typing import Any, Dict, List, Optional
 
 import requests
 from pydantic import BaseModel
-from textwrap import dedent
 
 
 class Image(BaseModel):

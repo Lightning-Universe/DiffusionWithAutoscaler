@@ -21,7 +21,10 @@ class DiffusionServer(L.app.components.PythonServer):
         if not hf_auth_key:
             raise ValueError("HF_AUTH_KEY is not set")
         pipe = diffusers.StableDiffusionPipeline.from_pretrained(
-            "CompVis/stable-diffusion-v1-4", use_auth_token=hf_auth_key, torch_dtype=torch.float16, revision="fp16"
+            "CompVis/stable-diffusion-v1-4",
+            use_auth_token=hf_auth_key,
+            torch_dtype=torch.float16,
+            revision="fp16",
         )
         self._model = deepspeed.init_inference(pipe.to("cuda"), dtype=torch.float16)
 
