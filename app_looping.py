@@ -8,12 +8,13 @@ from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, I
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
+
 class DiffusionServer(L.app.components.PythonServer):
     def __init__(self, *args, **kwargs):
         super().__init__(
             input_type=BatchText,
             output_type=BatchImage,
-            cloud_build_config=L.BuildConfig(requirements=['flash-attn']),
+            cloud_build_config=L.BuildConfig(requirements=["flash-attn"]),
             *args,
             **kwargs,
         )
@@ -21,22 +22,23 @@ class DiffusionServer(L.app.components.PythonServer):
         self._requests = {}
         self._predictor_task = None
         self._lock = None
-    
+
     def setup(self):
         if not os.path.exists("v1-5-pruned-emaonly.ckpt"):
             cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
             os.system(cmd)
         import ldm
+
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self._model = ldm.lightning.LightningStableDiffusion(
             config_path="v1-inference.yaml",
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
-            fp16=True, # Supported on GPU, skipped otherwise.
-            deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            fp16=True,  # Supported on GPU, skipped otherwise.
+            deepspeed=True,  # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
             flash_attention="hazy",
-            steps=30,         
+            steps=30,
         )
 
     def apply_model(self, requests):
@@ -63,19 +65,19 @@ class DiffusionServer(L.app.components.PythonServer):
                 if len(keys) == 0:
                     await asyncio.sleep(0.0001)
                     continue
-                
+
                 inputs = {key: self.sanetize_data(self._requests[key]) for key in keys}
                 results = self.apply_model(inputs)
 
                 for key, state in inputs.items():
                     if key == "global_state":
-                        self._requests['global_state'] = {"state": state}
+                        self._requests["global_state"] = {"state": state}
                     else:
-                        self._requests[key]['state'] = state
-                
+                        self._requests[key]["state"] = state
+
                 if results:
                     for key in results:
-                        self._requests[key]['response'].set_result(self.sanetize_results(results[key]))
+                        self._requests[key]["response"].set_result(self.sanetize_results(results[key]))
                         del self._requests[key]
 
                 await asyncio.sleep(0.0001)
@@ -98,7 +100,6 @@ class DiffusionServer(L.app.components.PythonServer):
 component = AutoScaler(
     DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu", disk_size=80),
-
     # autoscaler args
     min_replicas=1,
     max_replicas=1,
@@ -111,5 +112,5 @@ component = AutoScaler(
     output_type=Image,
     batching="streamed",
 )
-# component = DiffusionServer()
+# component = DiffusionServer()
 app = L.LightningApp(component)
