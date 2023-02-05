@@ -135,6 +135,6 @@ class IntervalReplacement(Strategy):
         for old_work, new_work in {**self._old_to_new_work}.items():
             if new_work.url:
                 replace_work(old_work, new_work)
-                print(f"Maybe replaced with {old_work} with {new_work} -> value: {value}")
+                print(f"Replaced with {old_work} with {new_work}")
                 del self._work_start_tracker[old_work]
                 del self._old_to_new_work[old_work]
