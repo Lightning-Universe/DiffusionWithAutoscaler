@@ -1,6 +1,6 @@
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
-# !pip install 'git+https://github.com/Lightning-AI/lightning.git@add_preemptible'
+# !pip install 'git+https://github.com/Lightning-AI/lightning.git'
 # !pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'
 import lightning as L
 import os, base64, io, torch, traceback, asyncio, uuid
