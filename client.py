@@ -1,4 +1,3 @@
-
 import base64
 import time
 from pathlib import Path
@@ -6,12 +5,12 @@ import requests
 import threading
 
 
-
 def req_and_write(index):
     start = time.time()
-    response = requests.post('https://zqihw-01gnyzn7w79g5an1074fdv9tnb.litng-ai-03.litng.ai/predict', json={
-        "text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"
-    })
+    response = requests.post(
+        "https://zqihw-01gnyzn7w79g5an1074fdv9tnb.litng-ai-03.litng.ai/predict",
+        json={"text": "astronaut riding a horse, digital art, epic lighting, highly-detailed masterpiece trending HQ"},
+    )
     end = time.time()
     try:
         img = response.json()["image"]
