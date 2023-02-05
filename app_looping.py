@@ -7,6 +7,7 @@ import os, base64, io, torch, traceback, asyncio, uuid
 from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, IntervalReplacement
 
 
+
 class DiffusionServer(L.app.components.PythonServer):
     def __init__(self, *args, **kwargs):
         super().__init__(
@@ -26,13 +27,14 @@ class DiffusionServer(L.app.components.PythonServer):
             cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
             os.system(cmd)
         import ldm
+
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self._model = ldm.lightning.LightningStableDiffusion(
             config_path="v1-inference.yaml",
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
-            fp16=True, # Supported on GPU, skipped otherwise.
-            deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            fp16=True,  # Supported on GPU, skipped otherwise.
+            deepspeed=True,  # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
             flash_attention="hazy",
             steps=30,
@@ -68,13 +70,13 @@ class DiffusionServer(L.app.components.PythonServer):
 
                 for key, state in inputs.items():
                     if key == "global_state":
-                        self._requests['global_state'] = {"state": state}
+                        self._requests["global_state"] = {"state": state}
                     else:
-                        self._requests[key]['state'] = state
+                        self._requests[key]["state"] = state
 
                 if results:
                     for key in results:
-                        self._requests[key]['response'].set_result(self.sanetize_results(results[key]))
+                        self._requests[key]["response"].set_result(self.sanetize_results(results[key]))
                         del self._requests[key]
 
                 await asyncio.sleep(0.0001)
@@ -111,5 +113,5 @@ component = AutoScaler(
     input_type=Text,
     output_type=Image,
 )
-# component = DiffusionServer()
+# component = DiffusionServer()
 app = L.LightningApp(component)

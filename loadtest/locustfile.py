@@ -1,4 +1,5 @@
-import os, time
+import os
+import time
 
 from locust import FastHttpUser, task
 

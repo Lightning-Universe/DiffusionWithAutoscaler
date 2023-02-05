@@ -46,10 +46,10 @@ class ColdStartProxy:
                     "Content-Type": "application/json",
                 }
                 async with session.post(
-                        self.proxy_url,
-                        json=request.dict(),
-                        timeout=self.proxy_timeout,
-                        headers=headers,
+                    self.proxy_url,
+                    json=request.dict(),
+                    timeout=self.proxy_timeout,
+                    headers=headers,
                 ) as response:
                     return await response.json()
         except Exception as ex:
@@ -66,10 +66,10 @@ class CustomColdStartProxy(ColdStartProxy):
                 "Content-Type": "application/json",
             }
             async with session.post(
-                    self.proxy_url,
-                    json={"prompt": request.text},
-                    timeout=self.proxy_timeout,
-                    headers=headers,
+                self.proxy_url,
+                json={"prompt": request.text},
+                timeout=self.proxy_timeout,
+                headers=headers,
             ) as response:
                 resp = await response.json()
                 return Image(image=resp["image"][22:])
