@@ -313,7 +313,7 @@ class _LoadBalancer(LightningWork):
                     self._batch = self._batch[len(batch) :]
                     self._last_batch_sent = time.time()
         except Exception:
-            print(traceback.print_exc())
+            logger.info(traceback.print_exc())
 
     async def process_request(self, data: BaseModel, request_id=None):
         if request_id is None:
@@ -410,7 +410,7 @@ class _LoadBalancer(LightningWork):
                         self._server_status[server] = True
                     else:
                         self._server_status[server] = 0
-                    print(f"total servers {len(self._server_status)}")
+                    logger.info(f"total servers {len(self._server_status)}")
             for existing in existing_servers:
                 if existing not in updated_servers:
                     logger.info(f"De-Registering server {existing}", self._server_status)
@@ -726,9 +726,9 @@ class AutoScaler(LightningFlow):
         # register as a background work not to affect the scaling logic
         self._background_work_registry[index] = work_attribute
         setattr(self, work_attribute, new_work)
-        print(f"Registered new work as self.{work_attribute}")
-        print(f"    self.workers={self.workers}")
-        print(f"    self.bg_workers={self.background_workers}")
+        logger.info(f"Registered new work as self.{work_attribute}")
+        logger.info(f"    self.workers={self.workers}")
+        logger.info(f"    self.bg_workers={self.background_workers}")
 
     def get_work(self, index: int) -> LightningWork:
         """Returns the ``LightningWork`` instance with the given index."""
@@ -754,7 +754,7 @@ class AutoScaler(LightningFlow):
 
         # if autoscaler has scaled in
         if old_work not in self.workers:
-            print(
+            logger.info(
                 f"The existing old work {old_work.name} was removed before replacement"
                 f" with a new work completes. Removing the new work {new_work.name}."
             )
@@ -772,7 +772,7 @@ class AutoScaler(LightningFlow):
 
         # let the load balancer know the new URL
         self.load_balancer.update_servers(self.workers)
-        print(f"Replaced {old_work.name} with {new_work.name}")
+        logger.info(f"Replaced {old_work.name} with {new_work.name}")
         return True
 
     def run(self):

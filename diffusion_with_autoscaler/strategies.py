@@ -14,6 +14,7 @@ from lightning.app.structures import Dict
 from lightning import LightningWork
 from lightning.app.structures import List
 from lightning.app.utilities.exceptions import CacheMissException
+from lightning.app.utilities.app_helpers import Logger
 
 _CONNECTION_RETRY_TOTAL = 5
 _CONNECTION_RETRY_BACKOFF_FACTOR = 0.5
@@ -24,6 +25,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+logger = Logger(__name__)
 
 def get_url(work: LightningWork) -> Optional[str]:
     internal_ip = work.internal_ip
@@ -117,7 +119,7 @@ class IntervalReplacement(Strategy):
         # step 1: collect running works to replace
         for work in serve_works:
             if work.url and work not in self._work_start_tracker:
-                print(f"Started tracking old work {work.name}")
+                logger.info(f"Started tracking old work {work.name}")
                 self._work_start_tracker[work] = time.time()
 
         # step 2: ask autoscaler to launch new works to replace old works with later
@@ -128,11 +130,11 @@ class IntervalReplacement(Strategy):
             if old_work not in self._old_to_new_work:
                 new_work = create_work()
                 _ = register_work(old_work, new_work)  # by registering, autoscaler will launch new_work in the background
-                print(f"Registered a new work {new_work.name}")
+                logger.info(f"Registered a new work {new_work.name}")
                 self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work
                 self._work_start_tracker[old_work] = time.time()
             else:
-                print(
+                logger.info(
                     f"Skipped creating a new work as already created {self._old_to_new_work[old_work].name}"
                     f" for the old work {old_work.name}"
                 )
@@ -141,6 +143,5 @@ class IntervalReplacement(Strategy):
         for old_work, new_work in {**self._old_to_new_work}.items():
             if new_work.url:
                 replace_work(old_work, new_work)
-                print(f"Replaced with {old_work} with {new_work}")
                 del self._work_start_tracker[old_work]
                 del self._old_to_new_work[old_work]
