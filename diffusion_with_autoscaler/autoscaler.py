@@ -21,7 +21,6 @@ from lightning.app.utilities.imports import _is_aiohttp_available, requires
 from lightning.app.utilities.packaging.cloud_compute import CloudCompute
 from pydantic import BaseModel
 from starlette.staticfiles import StaticFiles
-from lightning.app.frontend import StreamlitFrontend
 
 from diffusion_with_autoscaler.cold_start_proxy import ColdStartProxy
 from diffusion_with_autoscaler.strategies import Strategy, IntervalReplacement
@@ -103,11 +102,6 @@ class _SysInfo(BaseModel):
     global_request_count: int
 
 
-class _MetricsInfo(BaseModel):
-    batch_size: int
-    batch_size_processed: int
-
-
 class _BatchRequestModel(BaseModel):
     inputs: List[Any]
 
@@ -130,13 +124,6 @@ def _create_fastapi(title: str) -> TrackableFastAPI:
     @fastapi_app.get("/num-requests")
     async def num_requests() -> int:
         return fastapi_app.num_current_requests
-
-    @fastapi_app.get("/metrics", response_model=_MetricsInfo)
-    async def metrics_info():
-        return _MetricsInfo(
-            batch_size=fastapi_app.batch_size,
-            batch_size_processed=fastapi_app.batch_size_processed,
-        )
 
     return fastapi_app
 
@@ -241,7 +228,6 @@ class _LoadBalancer(LightningWork):
                     if len(batch) != len(outputs):
                         raise RuntimeError(f"result has {len(outputs)} items but batch is {len(batch)}")
                     result = {request[0]: r for request, r in zip(batch, outputs)}
-                    self._fastapi_app.batch_size_processed -= len(batch)
                     self._responses.update(result)
         except Exception as ex:
             result = {request[0]: ex for request in batch}
@@ -319,8 +305,6 @@ class _LoadBalancer(LightningWork):
                     # resetting the batch array, TODO - not locking the array
                     self._batch = self._batch[len(batch) :]
                     self._last_batch_sent = time.time()
-
-                self._fastapi_app.batch_size = len(self._batch)
         except Exception:
             print(traceback.print_exc())
 
@@ -373,9 +357,6 @@ class _LoadBalancer(LightningWork):
         self._fastapi_app = fastapi_app
 
         input_type = self._input_type
-
-        fastapi_app.batch_size = 0
-        fastapi_app.batch_size_processed = 0
 
         @fastapi_app.middleware("http")
         async def current_request_counter(request: Request, call_next):
@@ -454,10 +435,6 @@ class _LoadBalancer(LightningWork):
 
         AutoScaler uses this method to increase/decrease the number of works.
         """
-        import inspect
-
-        # print("update_servers called from:", inspect.stack()[1].function)
-
         old_server_urls = set(self.servers)
         # TODO _internal_ip should populate right value when running outside k8s or on a different cluster
         current_server_urls = {
@@ -551,60 +528,6 @@ class _LoadBalancer(LightningWork):
                 frontend_objects["request"] = request
                 frontend_objects["response"] = response
         return APIAccessFrontend(apis=[frontend_objects])
-
-class SimpleDashboard(LightningFlow):
-
-    def __init__(self):
-        super().__init__()
-        self.date = []
-        self.num_replicas = []
-        self.requests = []
-        self.batch_size = []
-        self.batch_size_processed = []
-        self._last_time = time.time()
-        self._start_time = time.time()
-
-    def add(self, num_replicas, requests, batch_size, batch_size_processed, *args, **kwargs):
-        # self.dashboard.add(
-        #     self.num_replicas + metrics["pending_works"],
-        #     metrics["pending_requests"],
-        #     **self.extra_metrics,
-        # )
-
-        if (time.time() - self._last_time) > 0.5:
-            t0 = time.time()
-            self.date.append(round(t0 - self._start_time, 4))
-            self.num_replicas.append(num_replicas)
-            self.requests.append(requests)
-            self.batch_size.append(batch_size)
-            self.batch_size_processed.append(batch_size_processed)
-
-            if len(self.date) > 5 * 3600 * 2:
-                self.date.pop(0)
-                self.num_replicas.pop(0)
-                self.requests.pop(0)
-                self.batch_size.pop(0)
-                self.batch_size_processed.pop(0)
-
-    def configure_layout(self):
-        return StreamlitFrontend(render_fn=render_fn)
-
-def render_fn(state):
-
-    import streamlit as st
-    import pandas as pd
-
-    df = pd.DataFrame({
-        'date': state.date,
-        'servers': state.num_replicas,
-        'requests': state.requests,
-        'batch_size': state.batch_size,
-        'batch_size_processed': state.batch_size_processed,
-    })
-
-    df = df.rename(columns={'date':'index'}).set_index('index')
-
-    st.line_chart(df)
 
 
 class AutoScaler(LightningFlow):
@@ -727,8 +650,6 @@ class AutoScaler(LightningFlow):
             cold_start_proxy=cold_start_proxy,
             batching=batching,
         )
-
-        self.dashboard = SimpleDashboard()
 
     @property
     def ready(self) -> bool:
@@ -914,12 +835,6 @@ class AutoScaler(LightningFlow):
         return int(requests.get(f"{load_balancer_url}/num-requests").json())
 
     @property
-    def extra_metrics(self) -> Dict:
-        a = requests.get(f"{self.load_balancer.url}/metrics").json()
-        print(a)
-        return a
-
-    @property
     def num_pending_works(self) -> int:
         """The number of pending works."""
         return sum(work.is_pending for work in self.workers)
@@ -935,12 +850,6 @@ class AutoScaler(LightningFlow):
         num_target_workers = max(
             self.min_replicas,
             min(self.max_replicas, self.scale(self.num_replicas, metrics)),
-        )
-
-        self.dashboard.add(
-            self.num_replicas + metrics["pending_works"],
-            metrics["pending_requests"],
-            **self.extra_metrics,
         )
 
         # scale-out
@@ -976,6 +885,5 @@ class AutoScaler(LightningFlow):
         tabs = [
             {"name": "Endpoint Info", "content": f"{self.load_balancer.url}/endpoint-info"},
             {"name": "Swagger", "content": self.load_balancer.url},
-            {"name": "Dashboard", "content": self.dashboard},
         ]
         return tabs
