@@ -120,9 +120,8 @@ class IntervalReplacement(Strategy):
 
             if old_work not in self._old_to_new_work:
                 new_work = create_work()
-                print(f"Created a new work {new_work.name}")
-                _ = register_work(old_work, new_work)  # autoscaler will launch new_work in the background
-                print(f"Registered new work {new_work.name}")
+                _ = register_work(old_work, new_work)  # by registering, autoscaler will launch new_work in the background
+                print(f"Registered a new work {new_work.name}")
                 self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work
                 self._work_start_tracker[old_work] = time.time()
             else:
