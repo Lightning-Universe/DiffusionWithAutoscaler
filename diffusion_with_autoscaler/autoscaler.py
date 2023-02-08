@@ -29,6 +29,13 @@ if _is_aiohttp_available():
     import aiohttp
     import aiohttp.client_exceptions
 
+
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 logger = Logger(__name__)
 
 
@@ -754,13 +761,13 @@ class AutoScaler(LightningFlow):
             self.remove_work_by_instance(new_work)
             return False
 
+        # if the new work isn't ready
         if not new_work.url:
             return None
 
-        # update the registry from old work to new work
-        self.remove_work_by_instance(old_work)
-        # e.g. new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
-        self._work_registry[index] = new_work.name.split(".")[-1]
+        # update the registries
+        self.remove_work_by_instance(old_work)  # TODO: remove old work AFTER load balancer has the new URL
+        self._work_registry[index] = new_work.name.split(".")[-1]  # e.g. new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
         del self._background_work_registry[index]
 
         # let the load balancer know the new URL

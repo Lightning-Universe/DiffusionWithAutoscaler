@@ -1,6 +1,7 @@
 import abc
 from typing import Any, Optional, Callable
 import time
+import logging
 import numpy as np
 from fastapi import Request
 from lightning import LightningWork, LightningFlow
@@ -16,6 +17,12 @@ from lightning.app.utilities.exceptions import CacheMissException
 
 _CONNECTION_RETRY_TOTAL = 5
 _CONNECTION_RETRY_BACKOFF_FACTOR = 0.5
+
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 
 def get_url(work: LightningWork) -> Optional[str]:
