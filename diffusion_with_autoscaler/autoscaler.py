@@ -737,8 +737,7 @@ class AutoScaler(LightningFlow):
             False if replacement was cancalled.
             None if replacement is in progress.
         """
-        # Note: both works need to be already attached to the autoscaler and running
-        assert old_work in self.workers
+        # Note that the new work has to be registered to the autoscaler before starting replacing.
         assert new_work in self.background_workers
 
         # TODO: remove the constraint of the index of both old/new work having to be the same
