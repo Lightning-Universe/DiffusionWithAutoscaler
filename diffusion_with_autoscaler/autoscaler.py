@@ -444,10 +444,6 @@ class _LoadBalancer(LightningWork):
 
         AutoScaler uses this method to increase/decrease the number of works.
         """
-        import inspect
-
-        # print("update_servers called from:", inspect.stack()[1].function)
-
         old_server_urls = set(self.servers)
         # TODO _internal_ip should populate right value when running outside k8s or on a different cluster
         current_server_urls = {
