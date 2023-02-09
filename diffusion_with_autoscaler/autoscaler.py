@@ -32,9 +32,9 @@ if _is_aiohttp_available():
 
 
 logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(message)s',
+    format="%(asctime)s %(levelname)-8s %(message)s",
     level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S'
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 logger = Logger(__name__)
@@ -110,11 +110,6 @@ class _SysInfo(BaseModel):
     global_request_count: int
 
 
-class _MetricsInfo(BaseModel):
-    batch_size: int
-    batch_size_processed: int
-
-
 class _BatchRequestModel(BaseModel):
     inputs: List[Any]
 
@@ -137,13 +132,6 @@ def _create_fastapi(title: str) -> TrackableFastAPI:
     @fastapi_app.get("/num-requests")
     async def num_requests() -> int:
         return fastapi_app.num_current_requests
-
-    @fastapi_app.get("/metrics", response_model=_MetricsInfo)
-    async def metrics_info():
-        return _MetricsInfo(
-            batch_size=fastapi_app.batch_size,
-            batch_size_processed=fastapi_app.batch_size_processed,
-        )
 
     return fastapi_app
 
@@ -248,7 +236,6 @@ class _LoadBalancer(LightningWork):
                     if len(batch) != len(outputs):
                         raise RuntimeError(f"result has {len(outputs)} items but batch is {len(batch)}")
                     result = {request[0]: r for request, r in zip(batch, outputs)}
-                    self._fastapi_app.batch_size_processed -= len(batch)
                     self._responses.update(result)
         except Exception as ex:
             result = {request[0]: ex for request in batch}
@@ -327,7 +314,6 @@ class _LoadBalancer(LightningWork):
                     self._batch = self._batch[len(batch) :]
                     self._last_batch_sent = time.time()
 
-                self._fastapi_app.batch_size = len(self._batch)
         except Exception:
             logger.info(traceback.print_exc())
 
@@ -380,9 +366,6 @@ class _LoadBalancer(LightningWork):
         self._fastapi_app = fastapi_app
 
         input_type = self._input_type
-
-        fastapi_app.batch_size = 0
-        fastapi_app.batch_size_processed = 0
 
         @fastapi_app.middleware("http")
         async def current_request_counter(request: Request, call_next):
@@ -559,57 +542,57 @@ class _LoadBalancer(LightningWork):
                 frontend_objects["response"] = response
         return APIAccessFrontend(apis=[frontend_objects])
 
-class SimpleDashboard(LightningFlow):
 
+class SimpleDashboard(LightningFlow):
     def __init__(self):
         super().__init__()
         self.date = []
         self.num_replicas = []
+        self.pending_works = []
         self.requests = []
-        self.batch_size = []
-        self.batch_size_processed = []
+        self.registry = []
+        self.bg_registry = []
         self._last_time = time.time()
         self._start_time = time.time()
 
-    def add(self, num_replicas, requests, batch_size, batch_size_processed, *args, **kwargs):
-        # self.dashboard.add(
-        #     self.num_replicas + metrics["pending_works"],
-        #     metrics["pending_requests"],
-        #     **self.extra_metrics,
-        # )
-
+    def add(self, num_replicas, pending_works, requests, registry, bg_registry):
         if (time.time() - self._last_time) > 0.5:
             t0 = time.time()
             self.date.append(round(t0 - self._start_time, 4))
             self.num_replicas.append(num_replicas)
+            self.pending_works.append(pending_works)
             self.requests.append(requests)
-            self.batch_size.append(batch_size)
-            self.batch_size_processed.append(batch_size_processed)
+            self.registry.append(registry)
+            self.bg_registry.append(bg_registry)
 
             if len(self.date) > 5 * 3600 * 2:
                 self.date.pop(0)
                 self.num_replicas.pop(0)
+                self.pending_works.pop(0)
                 self.requests.pop(0)
-                self.batch_size.pop(0)
-                self.batch_size_processed.pop(0)
+                self.registry.pop(0)
+                self.bg_registry.pop(0)
 
     def configure_layout(self):
         return StreamlitFrontend(render_fn=render_fn)
 
-def render_fn(state):
 
+def render_fn(state):
     import streamlit as st
     import pandas as pd
 
-    df = pd.DataFrame({
-        'date': state.date,
-        'servers': state.num_replicas,
-        'requests': state.requests,
-        'batch_size': state.batch_size,
-        'batch_size_processed': state.batch_size_processed,
-    })
+    df = pd.DataFrame(
+        {
+            "date": state.date,
+            "num_replicas": state.num_replicas,
+            "pending_works": state.pending_works,
+            "requests": state.requests,
+            "len(registry)": state.registry,
+            "len(bg_registries)": state.bg_registry,
+        }
+    )
 
-    df = df.rename(columns={'date':'index'}).set_index('index')
+    df = df.rename(columns={"date": "index"}).set_index("index")
 
     st.line_chart(df)
 
@@ -846,7 +829,9 @@ class AutoScaler(LightningFlow):
 
         # update the registries
         self.remove_work_by_instance(old_work)  # TODO: remove old work AFTER load balancer has the new URL
-        self._work_registry[index] = new_work.name.split(".")[-1]  # e.g. new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
+        self._work_registry[index] = new_work.name.split(".")[
+            -1
+        ]  # e.g. new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
         del self._background_work_registry[index]
 
         # let the load balancer know the new URL
@@ -920,12 +905,6 @@ class AutoScaler(LightningFlow):
         return int(requests.get(f"{load_balancer_url}/num-requests").json())
 
     @property
-    def extra_metrics(self) -> Dict:
-        a = requests.get(f"{self.load_balancer.url}/metrics").json()
-        print(a)
-        return a
-
-    @property
     def num_pending_works(self) -> int:
         """The number of pending works."""
         return sum(work.is_pending for work in self.workers)
@@ -944,9 +923,11 @@ class AutoScaler(LightningFlow):
         )
 
         self.dashboard.add(
-            self.num_replicas + metrics["pending_works"],
-            metrics["pending_requests"],
-            **self.extra_metrics,
+            num_replicas=self.num_replicas,
+            pending_works=metrics["pending_works"],
+            requests=metrics["pending_requests"],
+            registry=len(self._work_registry),
+            bg_registry=len(self._background_work_registry),
         )
 
         # scale-out

@@ -16,66 +16,17 @@ from lightning.app.structures import List
 from lightning.app.utilities.exceptions import CacheMissException
 from lightning.app.utilities.app_helpers import Logger
 
-_CONNECTION_RETRY_TOTAL = 5
-_CONNECTION_RETRY_BACKOFF_FACTOR = 0.5
 
 logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(message)s',
+    format="%(asctime)s %(levelname)-8s %(message)s",
     level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S'
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 logger = Logger(__name__)
 
-def get_url(work: LightningWork) -> Optional[str]:
-    internal_ip = work.internal_ip
-    if internal_ip:
-        return f"http://{internal_ip}:{work.port}"
-    raise CacheMissException
-
-
-def _configure_session() -> Session:
-    """Configures the session for GET and POST requests.
-    It enables a generous retrial strategy that waits for the application server to connect.
-    """
-    retry_strategy = Retry(
-        # wait time between retries increases exponentially according to: backoff_factor * (2 ** (retry - 1))
-        total=_CONNECTION_RETRY_TOTAL,
-        backoff_factor=_CONNECTION_RETRY_BACKOFF_FACTOR,
-        status_forcelist=[429, 500, 502, 503, 504],
-    )
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    http = requests.Session()
-    http.mount("https://", adapter)
-    http.mount("http://", adapter)
-    return http
-
 
 class Strategy(abc.ABC, LightningFlow):
-    def __init__(self):
-        super().__init__()
-        self._session = None
-
-    def select_url(self, request, local_router_metadata):
-        method = request.method.lower()
-        keys = list(local_router_metadata)
-        if len(keys) > 1:
-            selected_url = np.random.choice(keys, p=list(local_router_metadata.values()))
-        else:
-            selected_url = keys[0]
-        return selected_url, method
-
-    def make_request(self, request: Request, full_path: str, local_router_metadata: Any, payload) -> Response:
-
-        if self._session is None:
-            self._session = _configure_session()
-
-        selected_url, method = self.select_url(request, local_router_metadata)
-        if method == "post":
-            return getattr(self._session, method)(selected_url + "/" + full_path, json=payload)
-        else:
-            return getattr(self._session, method)(selected_url + "/" + full_path)
-
     @abc.abstractmethod
     def run(
         self,
@@ -134,7 +85,9 @@ class IntervalReplacement(Strategy):
 
             if old_work not in self._old_to_new_work:
                 new_work = create_work()
-                _ = register_work(old_work, new_work)  # by registering, autoscaler will launch new_work in the background
+                _ = register_work(
+                    old_work, new_work
+                )  # by registering, autoscaler will launch new_work in the background
                 logger.info(f"Registered a new work {new_work.name}")
                 self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work
                 self._work_start_tracker[old_work] = time.time()
