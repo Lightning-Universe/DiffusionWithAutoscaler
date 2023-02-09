@@ -127,6 +127,11 @@ class IntervalReplacement(Strategy):
             if (time.time() - start_time) < self.interval:
                 continue
 
+            # if old work stopped as autoscaler scales in
+            if old_work.has_stopped:
+                del self._work_start_tracker[old_work]
+                del self._old_to_new_work[old_work]
+
             if old_work not in self._old_to_new_work:
                 new_work = create_work()
                 _ = register_work(old_work, new_work)  # by registering, autoscaler will launch new_work in the background
