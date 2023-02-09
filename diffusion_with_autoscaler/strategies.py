@@ -2,18 +2,8 @@ import abc
 from typing import Any, Optional, Callable
 import time
 import logging
-import numpy as np
-from fastapi import Request
 from lightning import LightningWork, LightningFlow
 from lightning.app.structures import List
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-import requests
-from requests import Response, Session
-from lightning.app.structures import Dict
-from lightning import LightningWork
-from lightning.app.structures import List
-from lightning.app.utilities.exceptions import CacheMissException
 from lightning.app.utilities.app_helpers import Logger
 
 
@@ -27,6 +17,7 @@ logger = Logger(__name__)
 
 
 class Strategy(abc.ABC, LightningFlow):
+
     @abc.abstractmethod
     def run(
         self,
