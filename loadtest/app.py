@@ -11,15 +11,15 @@ class LocustWork(LightningWork):
         self.work_id = work_id
         self.is_master = is_master
 
-    def run(self, master_ip: Optional[str] = None, master_port: Optional[int] = None):
+    def run(self, master_host: Optional[str] = None, master_port: Optional[int] = None):
 
-        if not self.is_master and (master_ip is None or master_port is None):
-            raise ValueError("master_ip is required for slave nodes")
+        if not self.is_master and (master_host is None or master_port is None):
+            raise ValueError("master_host is required")
 
         if self.is_master:
             command = ["locust", "--web-host", "0.0.0.0", "--web-port", str(self.port), "--master"]
         else:
-            command = ["locust", "--worker", "--master-host", master_ip]
+            command = ["locust", "--worker", "--master-host", master_host]
 
         subprocess.run(command, cwd=Path(__file__).parent, check=True)
 
@@ -33,7 +33,7 @@ class Root(LightningFlow):
     def run(self):
         self.master.run()
         if self.master.is_running and self.master.internal_ip:
-            self.slave1.run(master_ip=self.master.internal_ip, master_port=self.master.port)
+            self.slave1.run(master_host=self.master.internal_ip, master_port=self.master.port)
 
     def configure_layout(self):
         return {"name": "Dashboard", "content": self.master.url}
