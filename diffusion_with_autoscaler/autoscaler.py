@@ -757,10 +757,14 @@ class AutoScaler(LightningFlow):
         self.num_replicas += 1
         return work_attribute, self.num_replicas
 
-    def remove_work(self, index: int) -> str:
+    def remove_work(self, index: int, is_background=False) -> str:
         """Removes the ``index`` th LightningWork instance."""
-        work_attribute = self._work_registry[index]
-        del self._work_registry[index]
+        if is_background:
+            work_attribute = self._background_work_registry[index]
+            del self._background_work_registry[index]
+        else:
+            work_attribute = self._work_registry[index]
+            del self._work_registry[index]
         work = getattr(self, work_attribute)
         work.stop()
         # Need to restart the url, so the strategy doesn't consider it as alive.
@@ -773,9 +777,9 @@ class AutoScaler(LightningFlow):
         _, index, _ = work.name.split("_")
         return int(index)
 
-    def remove_work_by_instance(self, work: LightningWork) -> str:
+    def remove_work_by_instance(self, work: LightningWork, is_background=False) -> str:
         index = self.get_work_index(work)
-        return self.remove_work(index)
+        return self.remove_work(index, is_background=is_background)
 
     def register_work(self, old_work: LightningWork, new_work: LightningWork) -> str:
         # preserve the index
@@ -816,7 +820,7 @@ class AutoScaler(LightningFlow):
                 f"The existing old work {old_work.name} was removed before replacement"
                 f" with a new work completes. Removing the new work {new_work.name}."
             )
-            self.remove_work_by_instance(new_work)
+            self.remove_work_by_instance(new_work, is_background=True)
             return False
 
         # if the new work isn't ready
