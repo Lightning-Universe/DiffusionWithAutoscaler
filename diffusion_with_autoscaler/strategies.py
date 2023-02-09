@@ -1,8 +1,19 @@
 import abc
 from typing import Any, Optional, Callable
 import time
+import logging
 from lightning import LightningWork, LightningFlow
 from lightning.app.structures import List
+from lightning.app.utilities.app_helpers import Logger
+
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+logger = Logger(__name__)
 
 
 class Strategy(abc.ABC, LightningFlow):
@@ -49,7 +60,7 @@ class IntervalReplacement(Strategy):
         # step 1: collect running works to replace
         for work in serve_works:
             if work.url and work not in self._work_start_tracker:
-                print(f"Started tracking old work {work.name}")
+                logger.info(f"Started tracking old work {work.name}")
                 self._work_start_tracker[work] = time.time()
 
         # step 2: ask autoscaler to launch new works to replace old works with later
@@ -59,13 +70,14 @@ class IntervalReplacement(Strategy):
 
             if old_work not in self._old_to_new_work:
                 new_work = create_work()
-                print(f"Created a new work {new_work.name}")
-                _ = register_work(old_work, new_work)  # autoscaler will launch new_work in the background
-                print(f"Registered new work {new_work.name}")
+                _ = register_work(
+                    old_work, new_work
+                )  # by registering, autoscaler will launch new_work in the background
+                logger.info(f"Registered a new work {new_work.name}")
                 self._old_to_new_work[old_work] = new_work  # holds which old work to replace with the new work
                 self._work_start_tracker[old_work] = time.time()
             else:
-                print(
+                logger.info(
                     f"Skipped creating a new work as already created {self._old_to_new_work[old_work].name}"
                     f" for the old work {old_work.name}"
                 )
@@ -74,6 +86,5 @@ class IntervalReplacement(Strategy):
         for old_work, new_work in {**self._old_to_new_work}.items():
             if new_work.url:
                 replace_work(old_work, new_work)
-                print(f"Replaced with {old_work} with {new_work}")
                 del self._work_start_tracker[old_work]
                 del self._old_to_new_work[old_work]

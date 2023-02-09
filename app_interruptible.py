@@ -57,7 +57,7 @@ component = AutoScaler(
     strategy=IntervalReplacement(interval=30 * 60),
     # autoscaler args
     min_replicas=1,
-    max_replicas=1,
+    max_replicas=4,
     endpoint="/predict",
     scale_out_interval=0,
     scale_in_interval=600,
