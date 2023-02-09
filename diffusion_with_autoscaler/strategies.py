@@ -17,7 +17,6 @@ logger = Logger(__name__)
 
 
 class Strategy(abc.ABC, LightningFlow):
-
     @abc.abstractmethod
     def run(
         self,
@@ -68,11 +67,6 @@ class IntervalReplacement(Strategy):
         for old_work, start_time in self._work_start_tracker.items():
             if (time.time() - start_time) < self.interval:
                 continue
-
-            # if old work stopped as autoscaler scales in
-            if old_work.has_stopped:
-                del self._work_start_tracker[old_work]
-                del self._old_to_new_work[old_work]
 
             if old_work not in self._old_to_new_work:
                 new_work = create_work()

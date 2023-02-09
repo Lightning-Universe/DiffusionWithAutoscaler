@@ -7,7 +7,6 @@ import os, base64, io, torch, traceback, asyncio, uuid
 from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, IntervalReplacement
 
 
-
 class DiffusionServer(L.app.components.PythonServer):
     def __init__(self, *args, **kwargs):
         super().__init__(
@@ -101,7 +100,6 @@ component = AutoScaler(
     cloud_compute=L.CloudCompute("gpu-rtx", interruptible=True, disk_size=80),
     strategy=IntervalReplacement(interval=30 * 60),
     batching="streamed",
-
     # autoscaler args
     min_replicas=1,
     max_replicas=1,

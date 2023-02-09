@@ -825,9 +825,8 @@ class AutoScaler(LightningFlow):
 
         # update the registries
         self.remove_work_by_instance(old_work)  # TODO: remove old work AFTER load balancer has the new URL
-        self._work_registry[index] = new_work.name.split(".")[
-            -1
-        ]  # e.g. new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
+        # e.g. new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
+        self._work_registry[index] = new_work.name.split(".")[-1]
         del self._background_work_registry[index]
 
         # let the load balancer know the new URL

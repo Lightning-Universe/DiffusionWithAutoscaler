@@ -6,8 +6,8 @@ from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, I
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
 
-class FlashAttentionBuildConfig(L.BuildConfig):
 
+class FlashAttentionBuildConfig(L.BuildConfig):
     def build_commands(self):
         return ["pip install 'git+https://github.com/Lightning-AI/stablediffusion.git@lit'"]
 
@@ -24,6 +24,7 @@ class DiffusionServer(L.app.components.PythonServer):
 
     def setup(self):
         import ldm
+
         if not os.path.exists("v1-5-pruned-emaonly.ckpt"):
             cmd = "curl -C - https://pl-public-data.s3.amazonaws.com/dream_stable_diffusion/v1-5-pruned-emaonly.ckpt -o v1-5-pruned-emaonly.ckpt"
             os.system(cmd)
@@ -32,7 +33,7 @@ class DiffusionServer(L.app.components.PythonServer):
             config_path="v1-inference.yaml",
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
-            deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            deepspeed=True,  # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
             flash_attention="triton",
             steps=30,
@@ -54,7 +55,6 @@ component = AutoScaler(
     DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu-rtx", interruptible=True, disk_size=80),
     strategy=IntervalReplacement(interval=30 * 60),
-
     # autoscaler args
     min_replicas=1,
     max_replicas=4,
