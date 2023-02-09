@@ -6,7 +6,6 @@ from lightning.app.structures import List
 
 
 class Strategy(abc.ABC, LightningFlow):
-
     @abc.abstractmethod
     def run(
         self,
