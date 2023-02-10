@@ -1,4 +1,5 @@
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
+# !pip install streamlit pandas
 import lightning as L
 import time
 from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, IntervalReplacement
