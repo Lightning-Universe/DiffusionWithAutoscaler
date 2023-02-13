@@ -715,8 +715,7 @@ class AutoScaler(LightningFlow):
         )
 
         self.enable_dashboard = enable_dashboard
-        if self.enable_dashboard:
-            self.dashboard = _SimpleDashboard()
+        self.dashboard = _SimpleDashboard() if self.enable_dashboard else None
 
     @property
     def ready(self) -> bool:

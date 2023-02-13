@@ -9,7 +9,13 @@ from fastapi import HTTPException
 
 from lightning.app import CloudCompute, LightningWork
 
-from diffusion_with_autoscaler.autoscaler import AutoScaler, _LoadBalancer, ColdStartProxy
+from diffusion_with_autoscaler.autoscaler import (
+    AutoScaler,
+    _LoadBalancer,
+    ColdStartProxy,
+    _SimpleDashboard,
+    IntervalReplacement,
+)
 from diffusion_with_autoscaler.datatypes import Text
 
 os.environ["LIGHTNING_INTERRUPTIBLE_WORKS"] = "1"
@@ -226,3 +232,30 @@ class TestLoadBalancerProcessRequest:
         load_balancer._responses = {req_id: "Dummy"}
         await load_balancer.process_request("test", req_id)
         assert load_balancer._batch == [(req_id, "test")]
+
+
+@pytest.mark.parametrize("enable_dashboard", [True, False])
+def test_attach_dashboard(enable_dashboard):
+    auto_scaler = AutoScaler(EmptyWork, enable_dashboard=enable_dashboard)
+    assert isinstance(auto_scaler.dashboard, _SimpleDashboard) if enable_dashboard else auto_scaler.dashboard is None
+
+
+@pytest.mark.parametrize(
+    "interruptible, strategy, expected",
+    [
+        pytest.param(False, None, False, id="don't attach if not interruptible"),
+        pytest.param(
+            False, IntervalReplacement(), True, id="attach even if not interruptble when strategy is provided"
+        ),
+        pytest.param(True, None, True, id="attach automatically if interruptible"),
+        pytest.param(True, IntervalReplacement(), True, id="attach if interruptible when strategy is provided"),
+    ],
+)
+def test_attach_interval_replacement(interruptible, strategy, expected):
+    auto_scaler = AutoScaler(
+        EmptyWork,
+        cloud_compute=CloudCompute("gpu", interruptible=interruptible),
+        strategy=strategy,
+    )
+
+    assert bool(auto_scaler.strategy) is expected
