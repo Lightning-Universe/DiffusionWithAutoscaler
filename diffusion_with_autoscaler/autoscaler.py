@@ -576,8 +576,8 @@ def render_fn(state):
             "num_replicas": state.num_replicas,
             "pending_works": state.pending_works,
             "requests": state.requests,
-            "len(registry)": state.registry,
-            "len(bg_registries)": state.bg_registry,
+            "servers": state.registry,
+            "bg_servers": state.bg_registry,
         }
     )
 
