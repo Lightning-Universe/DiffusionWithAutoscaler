@@ -1,3 +1,4 @@
+# !pip freeze
 # !pip install 'git+https://github.com/Lightning-AI/LAI-API-Access-UI-Component.git'
 # !pip install streamlit pandas
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
@@ -61,7 +62,7 @@ component = AutoScaler(
     max_replicas=4,
     endpoint="/predict",
     scale_out_interval=0,
-    scale_in_interval=600,
+    scale_in_interval=5 * 60,
     max_batch_size=6,
     timeout_batching=0.3,
     input_type=Text,

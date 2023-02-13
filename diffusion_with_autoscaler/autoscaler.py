@@ -30,13 +30,6 @@ if _is_aiohttp_available():
     import aiohttp
     import aiohttp.client_exceptions
 
-
-logging.basicConfig(
-    format="%(asctime)s %(levelname)-8s %(message)s",
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
 logger = Logger(__name__)
 
 
@@ -539,7 +532,7 @@ class _LoadBalancer(LightningWork):
         return APIAccessFrontend(apis=[frontend_objects])
 
 
-class SimpleDashboard(LightningFlow):
+class _SimpleDashboard(LightningFlow):
     def __init__(self):
         super().__init__()
         self.date = []
@@ -673,6 +666,7 @@ class AutoScaler(LightningFlow):
         cold_start_proxy: Union[ColdStartProxy, str, None] = None,
         strategy: Optional[Strategy] = None,
         batching: Literal["streamed", "grouped"] = "grouped",
+        enable_dashboard: bool = False,
         *work_args: Any,
         **work_kwargs: Any,
     ) -> None:
@@ -687,7 +681,13 @@ class AutoScaler(LightningFlow):
 
         self._input_type = input_type
         self._output_type = output_type
-        self.strategy = strategy
+
+        # if a work is interruptible, defaults to interval replacement strategy
+        if strategy is None and work_kwargs["cloud_compute"].interruptible:
+            self.strategy = IntervalReplacement(interval=30 * 60)
+        else:
+            self.strategy = strategy
+
         self.scale_out_interval = scale_out_interval
         self.scale_in_interval = scale_in_interval
         self.max_batch_size = max_batch_size
@@ -714,7 +714,9 @@ class AutoScaler(LightningFlow):
             batching=batching,
         )
 
-        self.dashboard = SimpleDashboard()
+        self.enable_dashboard = enable_dashboard
+        if self.enable_dashboard:
+            self.dashboard = _SimpleDashboard()
 
     @property
     def ready(self) -> bool:
@@ -921,13 +923,14 @@ class AutoScaler(LightningFlow):
             min(self.max_replicas, self.scale(self.num_replicas, metrics)),
         )
 
-        self.dashboard.add(
-            num_replicas=self.num_replicas,
-            pending_works=metrics["pending_works"],
-            requests=metrics["pending_requests"],
-            registry=len(self._work_registry),
-            bg_registry=len(self._background_work_registry),
-        )
+        if self.enable_dashboard:
+            self.dashboard.add(
+                num_replicas=self.num_replicas,
+                pending_works=metrics["pending_works"],
+                requests=metrics["pending_requests"],
+                registry=len(self._work_registry),
+                bg_registry=len(self._background_work_registry),
+            )
 
         # scale-out
         if time.time() - self._last_autoscale > self.scale_out_interval:
@@ -962,6 +965,7 @@ class AutoScaler(LightningFlow):
         tabs = [
             {"name": "Endpoint Info", "content": f"{self.load_balancer.url}/endpoint-info"},
             {"name": "Swagger", "content": self.load_balancer.url},
-            {"name": "Dashboard", "content": self.dashboard},
         ]
+        if self.enable_dashboard:
+            tabs.append({"name": "Dashboard", "content": self.dashboard})
         return tabs

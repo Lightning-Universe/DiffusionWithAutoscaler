@@ -1,17 +1,9 @@
 import abc
-from typing import Any, Optional, Callable
+from typing import Any, Callable
 import time
-import logging
 from lightning import LightningWork, LightningFlow
 from lightning.app.structures import List
 from lightning.app.utilities.app_helpers import Logger
-
-
-logging.basicConfig(
-    format="%(asctime)s %(levelname)-8s %(message)s",
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
 logger = Logger(__name__)
 
@@ -69,9 +61,9 @@ class IntervalReplacement(Strategy):
                 continue
 
             # if old work stopped as autoscaler scales in
-            if old_work.has_stopped:
-                del self._work_start_tracker[old_work]
-                del self._old_to_new_work[old_work]
+            # if old_work.has_stopped:
+            #     del self._work_start_tracker[old_work]
+            #     del self._old_to_new_work[old_work]
 
             if old_work not in self._old_to_new_work:
                 new_work = create_work()
