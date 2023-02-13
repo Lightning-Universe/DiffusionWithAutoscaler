@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from lightning.app.core.flow import LightningFlow
 from lightning.app.core.work import LightningWork
+from lightning.app.frontend import StreamlitFrontend
 from lightning.app.utilities.app_helpers import Logger
 from lightning.app.utilities.cloud import is_running_in_cloud
 from lightning.app.utilities.imports import _is_aiohttp_available, requires
@@ -23,6 +24,7 @@ from pydantic import BaseModel
 from starlette.staticfiles import StaticFiles
 
 from diffusion_with_autoscaler.cold_start_proxy import ColdStartProxy
+from diffusion_with_autoscaler.strategies import IntervalReplacement, Strategy
 
 if _is_aiohttp_available():
     import aiohttp
@@ -304,8 +306,9 @@ class _LoadBalancer(LightningWork):
                     # resetting the batch array, TODO - not locking the array
                     self._batch = self._batch[len(batch) :]
                     self._last_batch_sent = time.time()
+
         except Exception:
-            print(traceback.print_exc())
+            logger.info(traceback.print_exc())
 
     async def process_request(self, data: BaseModel, request_id=None):
         if request_id is None:
@@ -402,7 +405,7 @@ class _LoadBalancer(LightningWork):
                         self._server_status[server] = True
                     else:
                         self._server_status[server] = 0
-                    print(f"total servers {len(self._server_status)}")
+                    logger.info(f"total servers {len(self._server_status)}")
             for existing in existing_servers:
                 if existing not in updated_servers:
                     logger.info(f"De-Registering server {existing}", self._server_status)
@@ -529,6 +532,60 @@ class _LoadBalancer(LightningWork):
         return APIAccessFrontend(apis=[frontend_objects])
 
 
+class _SimpleDashboard(LightningFlow):
+    def __init__(self):
+        super().__init__()
+        self.date = []
+        self.num_replicas = []
+        self.pending_works = []
+        self.requests = []
+        self.registry = []
+        self.bg_registry = []
+        self._last_time = time.time()
+        self._start_time = time.time()
+
+    def add(self, num_replicas, pending_works, requests, registry, bg_registry):
+        if (time.time() - self._last_time) > 0.5:
+            t0 = time.time()
+            self.date.append(round(t0 - self._start_time, 4))
+            self.num_replicas.append(num_replicas)
+            self.pending_works.append(pending_works)
+            self.requests.append(requests)
+            self.registry.append(registry)
+            self.bg_registry.append(bg_registry)
+
+            if len(self.date) > 5 * 3600 * 2:
+                self.date.pop(0)
+                self.num_replicas.pop(0)
+                self.pending_works.pop(0)
+                self.requests.pop(0)
+                self.registry.pop(0)
+                self.bg_registry.pop(0)
+
+    def configure_layout(self):
+        return StreamlitFrontend(render_fn=render_fn)
+
+
+def render_fn(state):
+    import pandas as pd
+    import streamlit as st
+
+    df = pd.DataFrame(
+        {
+            "date": state.date,
+            "num_replicas": state.num_replicas,
+            "pending_works": state.pending_works,
+            "requests": state.requests,
+            "servers": state.registry,
+            "bg_servers": state.bg_registry,
+        }
+    )
+
+    df = df.rename(columns={"date": "index"}).set_index("index")
+
+    st.line_chart(df)
+
+
 class AutoScaler(LightningFlow):
     """The ``AutoScaler`` can be used to automatically change the number of replicas of the given server in
     response to changes in the number of incoming requests. Incoming requests will be batched and balanced across
@@ -607,13 +664,16 @@ class AutoScaler(LightningFlow):
         input_type: Type[BaseModel] = Dict,
         output_type: Type[BaseModel] = Dict,
         cold_start_proxy: Union[ColdStartProxy, str, None] = None,
+        strategy: Optional[Strategy] = None,
         batching: Literal["streamed", "grouped"] = "grouped",
+        enable_dashboard: bool = False,
         *work_args: Any,
         **work_kwargs: Any,
     ) -> None:
         super().__init__()
         self.num_replicas = 0
         self._work_registry = {}
+        self._background_work_registry = {}
 
         self._work_cls = work_cls
         self._work_args = work_args
@@ -621,6 +681,13 @@ class AutoScaler(LightningFlow):
 
         self._input_type = input_type
         self._output_type = output_type
+
+        # if a work is interruptible, defaults to interval replacement strategy
+        if strategy is None and getattr(work_kwargs.get("cloud_compute", None), "interruptible", False):
+            self.strategy = IntervalReplacement(interval=30 * 60)
+        else:
+            self.strategy = strategy
+
         self.scale_out_interval = scale_out_interval
         self.scale_in_interval = scale_in_interval
         self.max_batch_size = max_batch_size
@@ -647,6 +714,9 @@ class AutoScaler(LightningFlow):
             batching=batching,
         )
 
+        self.enable_dashboard = enable_dashboard
+        self.dashboard = _SimpleDashboard() if self.enable_dashboard else None
+
     @property
     def ready(self) -> bool:
         return self.load_balancer.ready
@@ -654,6 +724,15 @@ class AutoScaler(LightningFlow):
     @property
     def workers(self) -> List[LightningWork]:
         return [self.get_work(i) for i in range(self.num_replicas)]
+
+    @property
+    def background_workers(self) -> Dict[int, LightningWork]:
+        """Workers spinning up or running but not registered to the load balancer."""
+        workers = []
+        for index, work_attribute in self._background_work_registry.items():
+            work = getattr(self, work_attribute)
+            workers.append(work)
+        return workers
 
     def create_work(self) -> LightningWork:
         """Replicates a LightningWork instance with args and kwargs provided via ``__init__``."""
@@ -679,14 +758,40 @@ class AutoScaler(LightningFlow):
         self.num_replicas += 1
         return work_attribute
 
-    def remove_work(self, index: int) -> str:
+    def remove_work(self, index: int, is_background=False) -> str:
         """Removes the ``index`` th LightningWork instance."""
-        work_attribute = self._work_registry[index]
-        del self._work_registry[index]
+        if is_background:
+            work_attribute = self._background_work_registry[index]
+            del self._background_work_registry[index]
+        else:
+            work_attribute = self._work_registry[index]
+            del self._work_registry[index]
         work = getattr(self, work_attribute)
         work.stop()
-        self.num_replicas -= 1
+        # Need to restart the url, so the strategy doesn't consider it as alive.
+        work._url = ""
         return work_attribute
+
+    def get_work_index(self, work) -> int:
+        # TODO: improve index retrieval by removing the strong assumption
+        # on the attribute name e.g. `root.worker_0_3834a39094a0490182e01f4c6ca3d3af`
+        _, index, _ = work.name.split("_")
+        return int(index)
+
+    def remove_work_by_instance(self, work: LightningWork, is_background=False) -> str:
+        index = self.get_work_index(work)
+        return self.remove_work(index, is_background=is_background)
+
+    def register_work(self, old_work: LightningWork, new_work: LightningWork) -> str:
+        # preserve the index
+        index = self.get_work_index(old_work)
+        work_attribute = f"worker_{index}_{uuid.uuid4().hex}"
+        # register as a background work not to affect the scaling logic
+        self._background_work_registry[index] = work_attribute
+        setattr(self, work_attribute, new_work)
+        logger.info(f"Registered new work as self.{work_attribute}")
+        logger.info(f"    self.workers={self.workers}")
+        logger.info(f"    self.bg_workers={self.background_workers}")
 
     def get_work(self, index: int) -> LightningWork:
         """Returns the ``LightningWork`` instance with the given index."""
@@ -694,14 +799,68 @@ class AutoScaler(LightningFlow):
         work = getattr(self, work_attribute)
         return work
 
+    def replace_work(self, old_work: LightningWork, new_work: LightningWork) -> Optional[bool]:
+        """Replaces old_work of self.workers with new_work of self.background_workers.
+
+        Returns:
+            True if replacement succeeds.
+            False if replacement was cancalled.
+            None if replacement is in progress.
+        """
+        # Note that the new work has to be registered to the autoscaler before starting replacing.
+        assert new_work in self.background_workers
+
+        # TODO: remove the constraint of the index of both old/new work having to be the same
+        # The constraint stems from AutoScaler heavily relying on index to handle scaling out/in.
+        index = self.get_work_index(old_work)
+        assert index == self.get_work_index(new_work)
+
+        # if autoscaler has scaled in
+        if old_work not in self.workers:
+            logger.info(
+                f"The existing old work {old_work.name} was removed before replacement"
+                f" with a new work completes. Removing the new work {new_work.name}."
+            )
+            self.remove_work_by_instance(new_work, is_background=True)
+            return False
+
+        # if the new work isn't ready
+        if not new_work.url:
+            return None
+
+        # update the registries
+        self.remove_work_by_instance(old_work)  # TODO: remove old work AFTER load balancer has the new URL
+        # e.g. new_work.name == root.worker_0_c5d9c4ded0c548da8eefc53e10c71d3a
+        self._work_registry[index] = new_work.name.split(".")[-1]
+        del self._background_work_registry[index]
+
+        # let the load balancer know the new URL
+        self.load_balancer.update_servers(self.workers)
+        logger.info(f"Replaced {old_work.name} with {new_work.name}")
+        return True
+
     def run(self):
         if not self.load_balancer.is_running:
             self.load_balancer.run()
+
         for work in self.workers:
             work.run()
-        if self.load_balancer.url:
-            self.fake_trigger += 1  # Note: change state to keep calling `run`.
-            self.autoscale()
+
+        for work in self.background_workers:
+            work.run()
+
+        if not self.load_balancer.url:
+            return
+
+        if self.strategy:
+            self.strategy.run(
+                self.workers,
+                self.create_work,
+                self.register_work,
+                self.replace_work,
+            )
+        self.fake_trigger += 1  # Note: change state to keep calling `run`.
+        self.autoscale()
 
     def scale(self, replicas: int, metrics: dict) -> int:
         """The default scaling logic that users can override.
@@ -763,6 +922,15 @@ class AutoScaler(LightningFlow):
             min(self.max_replicas, self.scale(self.num_replicas, metrics)),
         )
 
+        if self.enable_dashboard:
+            self.dashboard.add(
+                num_replicas=self.num_replicas,
+                pending_works=metrics["pending_works"],
+                requests=metrics["pending_requests"],
+                registry=len(self._work_registry),
+                bg_registry=len(self._background_work_registry),
+            )
+
         # scale-out
         if time.time() - self._last_autoscale > self.scale_out_interval:
             # TODO figuring out number of workers to add only based on num_replicas isn't right because pending works
@@ -785,6 +953,7 @@ class AutoScaler(LightningFlow):
             for _ in range(num_workers_to_remove):
                 logger.info(f"Scaling in from {self.num_replicas} to {self.num_replicas - 1}")
                 removed_work_id = self.remove_work(self.num_replicas - 1)
+                self.num_replicas -= 1
                 logger.info(f"Work removed: '{removed_work_id}'")
             if num_workers_to_remove > 0:
                 self._last_autoscale = time.time()
@@ -796,4 +965,6 @@ class AutoScaler(LightningFlow):
             {"name": "Endpoint Info", "content": f"{self.load_balancer.url}/endpoint-info"},
             {"name": "Swagger", "content": self.load_balancer.url},
         ]
+        if self.enable_dashboard:
+            tabs.append({"name": "Dashboard", "content": self.dashboard})
         return tabs
