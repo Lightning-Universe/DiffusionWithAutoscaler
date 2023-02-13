@@ -683,7 +683,7 @@ class AutoScaler(LightningFlow):
         self._output_type = output_type
 
         # if a work is interruptible, defaults to interval replacement strategy
-        if strategy is None and work_kwargs["cloud_compute"].interruptible:
+        if strategy is None and getattr(work_kwargs.get("cloud_compute", None), "interruptible", False):
             self.strategy = IntervalReplacement(interval=30 * 60)
         else:
             self.strategy = strategy
