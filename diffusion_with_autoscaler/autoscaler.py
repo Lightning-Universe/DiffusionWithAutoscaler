@@ -850,6 +850,7 @@ class AutoScaler(LightningFlow):
         for work in self.background_workers:
             work.run()
 
+        print(self.load_balancer.url)
         if not self.load_balancer.url:
             return
 
