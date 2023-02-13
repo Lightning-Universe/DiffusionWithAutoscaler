@@ -44,6 +44,7 @@ component = AutoScaler(
     DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu-rtx", disk_size=80, preemptible=True),
     strategy=IntervalReplacement(interval=60 * 15),  # Renew the instance every 15 minutes.
+    enable_dashboard=True,
     # autoscaler args
     min_replicas=1,
     max_replicas=1,
