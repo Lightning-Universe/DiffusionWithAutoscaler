@@ -15,16 +15,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from lightning.app.core.flow import LightningFlow
 from lightning.app.core.work import LightningWork
+from lightning.app.frontend import StreamlitFrontend
 from lightning.app.utilities.app_helpers import Logger
 from lightning.app.utilities.cloud import is_running_in_cloud
 from lightning.app.utilities.imports import _is_aiohttp_available, requires
 from lightning.app.utilities.packaging.cloud_compute import CloudCompute
 from pydantic import BaseModel
 from starlette.staticfiles import StaticFiles
-from lightning.app.frontend import StreamlitFrontend
 
 from diffusion_with_autoscaler.cold_start_proxy import ColdStartProxy
-from diffusion_with_autoscaler.strategies import Strategy, IntervalReplacement
+from diffusion_with_autoscaler.strategies import IntervalReplacement, Strategy
 
 if _is_aiohttp_available():
     import aiohttp
@@ -567,8 +567,8 @@ class _SimpleDashboard(LightningFlow):
 
 
 def render_fn(state):
-    import streamlit as st
     import pandas as pd
+    import streamlit as st
 
     df = pd.DataFrame(
         {

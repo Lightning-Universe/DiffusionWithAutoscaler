@@ -1,7 +1,8 @@
 import abc
-from typing import Any, Callable
 import time
-from lightning import LightningWork, LightningFlow
+from typing import Any, Callable
+
+from lightning import LightningFlow, LightningWork
 from lightning.app.structures import List
 from lightning.app.utilities.app_helpers import Logger
 
