@@ -38,7 +38,6 @@ repos:
     hooks:
       - id: black
         name: Black code
-        args: ["--line-length=120"]
 
   - repo: https://github.com/executablebooks/mdformat
     rev: 0.7.16
@@ -53,4 +52,4 @@ repos:
     rev: v0.0.240
     hooks:
       - id: ruff
-        args: ["--fix", "--line-length=120"]
+        args: ["--fix", "--line-length=120", "--ignore=E401,E501"]
