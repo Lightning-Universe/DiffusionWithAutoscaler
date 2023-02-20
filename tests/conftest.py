@@ -121,8 +121,8 @@ def caplog(caplog):
 
 @pytest.fixture
 def patch_constants(request):
-    """This fixture can be used with indirect parametrization to patch values in `lightning.app.core.constants` for
-    the duration of a test.
+    """This fixture can be used with indirect parametrization to patch values in `lightning.app.core.constants` for the
+    duration of a test.
 
     Example::
 

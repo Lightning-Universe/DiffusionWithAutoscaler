@@ -34,7 +34,7 @@ logger = Logger(__name__)
 
 
 class TrackableFastAPI(FastAPI):
-    """A FastAPI subclass that tracks the request metadata"""
+    """A FastAPI subclass that tracks the request metadata."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -587,9 +587,8 @@ def render_fn(state):
 
 
 class AutoScaler(LightningFlow):
-    """The ``AutoScaler`` can be used to automatically change the number of replicas of the given server in
-    response to changes in the number of incoming requests. Incoming requests will be batched and balanced across
-    the replicas.
+    """The ``AutoScaler`` can be used to automatically change the number of replicas of the given server in response to
+    changes in the number of incoming requests. Incoming requests will be batched and balanced across the replicas.
 
     Args:
         min_replicas: The number of works to start when app initializes.

@@ -19,6 +19,7 @@ class Strategy(abc.ABC, LightningFlow):
         replace_work: Callable,
     ) -> Any:
         """Controls the following:
+
         - when to create works
         - how to create works, e.g. create_work(weight_path="path/to/new_weights")
         - when to replace old works with new works
@@ -31,9 +32,8 @@ class Strategy(abc.ABC, LightningFlow):
 
 class IntervalReplacement(Strategy):
     def __init__(self, interval: int = 30 * 60) -> None:
-        """
-        This strategy implements a mechanism to automatically replace servers on a scheduled interval
-        to continously run on spot instances.
+        """This strategy implements a mechanism to automatically replace servers on a scheduled interval to continously
+        run on spot instances.
 
         Arguments:
             interval: Time in seconds before creating a replacement server.

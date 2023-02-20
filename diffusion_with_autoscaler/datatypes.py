@@ -134,9 +134,9 @@ image = base64.b64encode(image).decode("ascii")
 
 response = requests.post('"""
             + url
-            + """', 
+            + """',
     json={
-        "text": "A fantasy landscape, trending on artstation", 
+        "text": "A fantasy landscape, trending on artstation",
         "image": image
     }
 )
@@ -146,7 +146,7 @@ response = requests.post('"""
             + url
             + """',
 #    json={
-#        "text": "A fantasy landscape, trending on artstation", 
+#        "text": "A fantasy landscape, trending on artstation",
 #        "image": image,
 #    },
 #    auth=requests.auth.HTTPBasicAuth('your_username', 'your_password')
@@ -171,10 +171,10 @@ image = base64.b64encode(image).decode("ascii")
 
 response = requests.post('"""
             + url
-            + """', 
+            + """',
     json={
         "inputs": [{
-            "text": "A fantasy landscape, trending on artstation", 
+            "text": "A fantasy landscape, trending on artstation",
             "image": image,
         }]
     }
@@ -186,7 +186,7 @@ response = requests.post('"""
             + """',
 #    json={
 #        "inputs": [{
-#            "text": "A fantasy landscape, trending on artstation", 
+#            "text": "A fantasy landscape, trending on artstation",
 #            "image": image,
 #        }]
 #    },
