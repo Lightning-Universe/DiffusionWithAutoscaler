@@ -1,5 +1,8 @@
 # DiffusionWithAutoscaler
 
+[![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)](https://lightning.ai)
+![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
+
 `DiffusionWithAutoscaler` allows you to serve stable diffusion with a production ready endpoint on [lightning.ai](https://lightning.ai/).
 
 To get started, save this code snippet as `app.py` and run the below at the end of the README.
