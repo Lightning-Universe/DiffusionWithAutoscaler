@@ -15,13 +15,13 @@ def req_and_write(index):
     try:
         img = response.json()["image"]
     except Exception:
-        print("index {} failed".format(index))
+        print(f"index {index} failed")
         print(response.text)
         print("=======================================\n\n")
     else:
         img = base64.b64decode(img.encode("utf-8"))
         Path(f"response{index}.png").write_bytes(img)
-        print("index {} success in {}".format(index, end - start))
+        print(f"index {index} success in {end - start}")
 
 
 i = 0

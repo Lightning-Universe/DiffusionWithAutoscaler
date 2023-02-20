@@ -12,7 +12,6 @@ class LocustWork(LightningWork):
         self.is_master = is_master
 
     def run(self, master_host: Optional[str] = None, master_port: Optional[int] = None):
-
         if not self.is_master and (master_host is None or master_port is None):
             raise ValueError("master_host is required")
 

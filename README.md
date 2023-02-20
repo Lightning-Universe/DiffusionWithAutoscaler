@@ -1,4 +1,5 @@
 # DiffusionWithAutoscaler
+
 `DiffusionWithAutoscaler` allows you to serve stable diffusion with a production ready endpoint on [lightning.ai](https://lightning.ai/).
 
 To get started, save this code snippet as `app.py` and run the below at the end of the README.
@@ -11,9 +12,17 @@ To get started, save this code snippet as `app.py` and run the below at the end 
 # !curl https://raw.githubusercontent.com/Lightning-AI/stablediffusion/lit/configs/stable-diffusion/v1-inference.yaml -o v1-inference.yaml
 import lightning as L
 import os, base64, io, torch, ldm
-from diffusion_with_autoscaler import AutoScaler, BatchText, BatchImage, Text, Image, CustomColdStartProxy
+from diffusion_with_autoscaler import (
+    AutoScaler,
+    BatchText,
+    BatchImage,
+    Text,
+    Image,
+    CustomColdStartProxy,
+)
 
 PROXY_URL = "https://ulhcn-01gd3c9epmk5xj2y9a9jrrvgt8.litng-ai-03.litng.ai/api/predict"
+
 
 class DiffusionServer(L.app.components.PythonServer):
     def __init__(self, *args, **kwargs):
@@ -28,10 +37,10 @@ class DiffusionServer(L.app.components.PythonServer):
             config_path="v1-inference.yaml",
             checkpoint_path="v1-5-pruned-emaonly.ckpt",
             device=device,
-            deepspeed=True, # Supported on Ampere and RTX, skipped otherwise.
+            deepspeed=True,  # Supported on Ampere and RTX, skipped otherwise.
             context="no_grad",
             flash_attention="triton",
-            steps=30,  
+            steps=30,
         )
 
     def predict(self, requests):
@@ -49,7 +58,6 @@ class DiffusionServer(L.app.components.PythonServer):
 component = AutoScaler(
     DiffusionServer,  # The component to scale
     cloud_compute=L.CloudCompute("gpu-rxt", disk_size=80),
-
     # autoscaler args
     min_replicas=1,
     max_replicas=1,
@@ -64,7 +72,6 @@ component = AutoScaler(
 )
 
 app = L.LightningApp(component)
-
 ```
 
 Run the app for free directly [there](https://lightning.ai/component/UJ7stJI225-Serve%20Dreambooth%20Diffusion).
@@ -81,19 +88,18 @@ lightning run app app.py --setup
 lightning run app app.py --setup --cloud
 ```
 
-
 ### Benchmarking
 
 When serving [stable diffusion 1.5](https://github.com/Lightning-AI/stablediffusion) with DDIM 30 steps, you can expect the followings numbers on https://lightning.ai/:
 
-| Compute Type | Max Batch Size | Number of users (locust)  | Average (ms)  | Min (ms)  | Max (ms)  |
-|---|---|---|---|---|---|
-| A10 (gpu-rtx) | 1  | 1  | 2185  | 2124  | 5030  |
-| A10 (gpu-rtx) | 2  | 2  | 4206  | 2139  | 6418  |
-| A10 (gpu-rtx) | 4  | 4  | 7524  | 2138  | 10900  |
-| A10 (gpu-rtx) | 6  | 6  | 10929  | 2135  | 18494  |
-| T4 (gpu) | 1 | 1 | 5061 | - | - |
-| T4 (gpu) | 2 | 2 | 11393 | - | - |
+| Compute Type  | Max Batch Size | Number of users (locust) | Average (ms) | Min (ms) | Max (ms) |
+| ------------- | -------------- | ------------------------ | ------------ | -------- | -------- |
+| A10 (gpu-rtx) | 1              | 1                        | 2185         | 2124     | 5030     |
+| A10 (gpu-rtx) | 2              | 2                        | 4206         | 2139     | 6418     |
+| A10 (gpu-rtx) | 4              | 4                        | 7524         | 2138     | 10900    |
+| A10 (gpu-rtx) | 6              | 6                        | 10929        | 2135     | 18494    |
+| T4 (gpu)      | 1              | 1                        | 5061         | -        | -        |
+| T4 (gpu)      | 2              | 2                        | 11393        | -        | -        |
 
 To reproduce those numbers, you can do the following:
 
@@ -105,8 +111,7 @@ lightning run app app.py --setup --cloud
 
 2. Wait for the app to be ready for inference in the cloud
 
-
-3. Launch the load testing app (using locust)
+1. Launch the load testing app (using locust)
 
 ```bash
 lightning run app loadtest/app.py --cloud --env SERVER_URL={URL_SERVER}
@@ -120,6 +125,6 @@ lightning run app loadtest/app.py --cloud --env SERVER_URL=https://gcrjp-01gpgyn
 
 4. From the load testing UI, specify a number of users to be either 1, 2, 4, 6 and launch the load testing
 
-5. The Stable Diffusion model gets faster with time. At convergence, you should observe the same numbers as reported in the table above. Otherwise, open an issue. 
+1. The Stable Diffusion model gets faster with time. At convergence, you should observe the same numbers as reported in the table above. Otherwise, open an issue.
 
 Note: Cuda Graph isn't supported yet, but extra speed up can be expected soon.

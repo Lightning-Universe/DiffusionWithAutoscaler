@@ -32,8 +32,8 @@ class ColdStartProxy:
 
     async def handle_request(self, request: BaseModel) -> Any:
         """This method is called when the request is received while the work is cold starting. The default
-        implementation of this method is to forward the request body to the proxy service with POST method but the
-        user can override this method to handle the request in any way.
+        implementation of this method is to forward the request body to the proxy service with POST method but the user
+        can override this method to handle the request in any way.
 
         Args:
             request (BaseModel): The request body, a pydantic model that is being
